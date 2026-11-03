@@ -1,0 +1,9 @@
+.claude/
+node_modules/
+.turbo/
+.next/
+dist/
+coverage/
+packages/database/src/generated/
+prompt.md
+prompt2.md
