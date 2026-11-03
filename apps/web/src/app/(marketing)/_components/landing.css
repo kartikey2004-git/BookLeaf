@@ -1,0 +1,246 @@
+.lp {
+  --lp-paper: #f5f4f0;
+  --lp-ink: #121212;
+  --lp-body: #4a4a4a;
+  --lp-muted: #6f6e6a;
+  --lp-line: #d3d2cd;
+  --lp-accent: #f26b21;
+
+  background: var(--lp-paper);
+  color: var(--lp-ink);
+  font-family: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.lp ::selection {
+  background: #121212;
+  color: #f5f4f0;
+}
+
+.lp a:focus-visible,
+.lp button:focus-visible,
+.lp summary:focus-visible {
+  outline: 2px solid var(--lp-ink);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.lp-paint {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.lp-paint::before,
+.lp-paint::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+.lp-paint::after {
+  opacity: 0.28;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 0 0.33 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.lp-paint--mist {
+  background:
+    radial-gradient(120% 70% at 20% 0%, #c9d6d8 0%, transparent 60%),
+    radial-gradient(90% 60% at 85% 10%, #d8e0dd 0%, transparent 65%),
+    linear-gradient(180deg, #c3d1d3 0%, #dfe3dc 48%, #ece9e1 78%, #f5f4f0 100%);
+}
+.lp-paint--mist::before {
+  background:
+    radial-gradient(
+      14% 40% at 4% 92%,
+      rgba(104, 128, 120, 0.55),
+      transparent 70%
+    ),
+    radial-gradient(
+      10% 34% at 12% 96%,
+      rgba(120, 140, 130, 0.45),
+      transparent 70%
+    ),
+    radial-gradient(
+      12% 38% at 92% 90%,
+      rgba(104, 128, 120, 0.5),
+      transparent 70%
+    ),
+    radial-gradient(
+      9% 30% at 98% 96%,
+      rgba(120, 140, 130, 0.4),
+      transparent 70%
+    ),
+    radial-gradient(
+      60% 18% at 50% 100%,
+      rgba(245, 244, 240, 1),
+      transparent 80%
+    );
+  filter: blur(6px);
+}
+
+.lp-paint--meadow {
+  background:
+    radial-gradient(70% 45% at 30% 15%, #a9b39a 0%, transparent 70%),
+    radial-gradient(80% 50% at 80% 30%, #8f9c78 0%, transparent 70%),
+    radial-gradient(120% 60% at 50% 100%, #2c3320 0%, transparent 70%),
+    linear-gradient(180deg, #b7bfa9 0%, #7f8c62 45%, #3f4a2b 80%, #1d2216 100%);
+}
+
+.lp-paint--dune {
+  background:
+    radial-gradient(70% 45% at 25% 20%, #d9b48a 0%, transparent 70%),
+    radial-gradient(60% 40% at 85% 35%, #c08a5a 0%, transparent 70%),
+    radial-gradient(120% 60% at 50% 105%, #2a1d12 0%, transparent 70%),
+    linear-gradient(180deg, #e2c9a8 0%, #b98455 50%, #5a3b22 82%, #1f160e 100%);
+}
+
+.lp-paint--sand {
+  background:
+    radial-gradient(80% 50% at 20% 30%, #e7c6a0 0%, transparent 70%),
+    radial-gradient(70% 45% at 80% 60%, #c98a52 0%, transparent 70%),
+    linear-gradient(170deg, #f0dcc2 0%, #d9a774 45%, #b06f3c 75%, #8c522a 100%);
+}
+
+.lp-paint--lavender {
+  background:
+    radial-gradient(60% 40% at 45% 25%, #d9b8d6 0%, transparent 70%),
+    radial-gradient(80% 50% at 15% 70%, #a77d9e 0%, transparent 70%),
+    radial-gradient(80% 50% at 90% 75%, #b68aa8 0%, transparent 70%),
+    linear-gradient(180deg, #ecd3e2 0%, #c79bbd 45%, #9a6f8f 75%, #7a5570 100%);
+}
+
+.lp-paint--sea {
+  background:
+    radial-gradient(60% 50% at 10% 30%, #3f6d8a 0%, transparent 70%),
+    radial-gradient(70% 50% at 85% 75%, #a9c3cc 0%, transparent 70%),
+    linear-gradient(160deg, #24475d 0%, #4f7d94 40%, #9ab6bf 75%, #d9e1df 100%);
+}
+
+.lp-paint--ochre {
+  background:
+    radial-gradient(60% 40% at 30% 30%, #e6c79a 0%, transparent 70%),
+    radial-gradient(70% 50% at 80% 80%, #8f6a45 0%, transparent 70%),
+    linear-gradient(180deg, #efe1c6 0%, #d1ac78 50%, #8d6a46 85%, #5b432c 100%);
+}
+
+.lp-paint--valley {
+  background:
+    radial-gradient(60% 45% at 15% 25%, #c8cfc4 0%, transparent 70%),
+    radial-gradient(55% 40% at 70% 20%, #e3e0d4 0%, transparent 70%),
+    radial-gradient(70% 55% at 85% 80%, #33503f 0%, transparent 70%),
+    radial-gradient(70% 55% at 10% 85%, #2f4636 0%, transparent 70%),
+    linear-gradient(180deg, #b9c4b8 0%, #6f8a74 45%, #3c5644 75%, #22342a 100%);
+}
+
+.lp-dots {
+  background-image: radial-gradient(
+    rgba(18, 18, 18, 0.16) 1px,
+    transparent 1.2px
+  );
+  background-size: 46px 46px;
+}
+
+.lp-link {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 100% 1px;
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  padding-bottom: 2px;
+  transition: background-size 0.3s ease;
+}
+
+.lp-link:hover {
+  background-size: 0% 1px;
+  background-position: 100% 100%;
+}
+
+.lp-ticker-mask {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 30%,
+    black 70%,
+    transparent
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 30%,
+    black 70%,
+    transparent
+  );
+}
+
+@keyframes lp-ticker {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+.lp-ticker {
+  animation: lp-ticker 28s linear infinite;
+}
+
+@keyframes lp-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.lp-progress {
+  transform-origin: left;
+  animation: lp-progress var(--lp-duration, 7s) linear forwards;
+}
+
+@keyframes lp-fade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.lp-fade {
+  animation: lp-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.lp details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.lp details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.lp details[open] .lp-chevron {
+  transform: rotate(180deg);
+}
+
+.lp details[open] .lp-plus-v {
+  transform: scaleY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-ticker,
+  .lp-progress,
+  .lp-fade {
+    animation: none;
+  }
+
+  .lp-link {
+    transition: none;
+  }
+}
