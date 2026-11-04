@@ -14,9 +14,23 @@ export const auth = betterAuth({
   trustedOrigins,
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   emailAndPassword: { enabled: true },
+  user: {
+    additionalFields: {
+      role: {
+        type: "string",
+        required: false,
+        defaultValue: "AUTHOR",
+        input: false,
+      },
+    },
+  },
   advanced: {
     useSecureCookies: environment.NODE_ENV === "production",
   },
 });
+
+export async function getVerifiedSession(headers: Headers) {
+  return auth.api.getSession({ headers });
+}
 
 export type Auth = typeof auth;

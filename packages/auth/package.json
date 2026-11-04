@@ -8,6 +8,8 @@
     "./client": "./src/client.ts"
   },
   "scripts": {
+    "provision:demo": "tsx src/provision-demo.ts",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -19,6 +21,8 @@
   "devDependencies": {
     "@repo/config": "workspace:*",
     "@types/node": "^24.10.1",
-    "typescript": "^6.0.0"
+    "tsx": "^4.19.4",
+    "typescript": "^6.0.0",
+    "vitest": "^3.2.2"
   }
 }

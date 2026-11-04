@@ -18,6 +18,42 @@ const openApiDocument = {
         },
       },
     },
+    "/api/v1/author/me": {
+      get: {
+        summary: "Authenticated author profile",
+        responses: {
+          "200": { description: "Author profile" },
+          "401": { description: "Unauthenticated" },
+          "403": { description: "Account is not linked" },
+        },
+      },
+    },
+    "/api/v1/author/books": {
+      get: {
+        summary: "Authenticated author books",
+        parameters: [
+          { name: "page", in: "query" },
+          { name: "pageSize", in: "query" },
+        ],
+        responses: { "200": { description: "Paginated author books" } },
+      },
+    },
+    "/api/v1/author/books/{bookId}": {
+      get: {
+        summary: "Authenticated author book",
+        parameters: [{ name: "bookId", in: "path", required: true }],
+        responses: {
+          "200": { description: "Author book" },
+          "404": { description: "Book is unavailable" },
+        },
+      },
+    },
+    "/api/v1/author/overview": {
+      get: {
+        summary: "Authenticated author overview",
+        responses: { "200": { description: "Author aggregate summary" } },
+      },
+    },
   },
 } as const;
 
