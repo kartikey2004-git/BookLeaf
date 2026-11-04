@@ -26,4 +26,12 @@ The API verifies every author request with Better Auth server-side session looku
 
 The User table has a minimal `AUTHOR` or `ADMIN` role field for future policy checks. Current author routes do not grant special admin access.
 
+## Ticket operations
+
+Tickets belong to one Author and may link to one of that author's Books. `TicketMessage` stores public author/support conversation. `TicketInternalNote` is administrator-only and never selected by author routes. `TicketAuditEvent` records actor, action, timestamp, and minimal change metadata for creates, updates, messages, and notes.
+
+Ticket states are `OPEN`, `IN_PROGRESS`, `RESOLVED`, and `CLOSED`. `OPEN` may move to `IN_PROGRESS`, `RESOLVED`, or `CLOSED`; `IN_PROGRESS` may move to `OPEN`, `RESOLVED`, or `CLOSED`; `RESOLVED` may reopen only to `IN_PROGRESS` or close; `CLOSED` is terminal. Authors can reply only while tickets are `OPEN` or `IN_PROGRESS`.
+
+Author ticket reads and writes include `authorId` at the database boundary. Admin routes require the verified Better Auth `ADMIN` role. Administrator changes require the current integer `version`; compare-and-update prevents silent concurrent overwrites. State changes and their audit events, assignments and their audit events, and messages/notes and their audit events are committed in one transaction.
+
 SSE endpoints set standard event-stream headers, issue monotonic per-connection event IDs, send heartbeats, observe disconnects, and clean up timers/listeners. `Last-Event-ID` is an extension seam; durable replay and multi-instance fan-out require a shared event transport once streams must cross API processes.

@@ -29,6 +29,12 @@ Available endpoints are `GET /api/v1/author/me`, `GET /api/v1/author/books?page=
 
 To provision local demo accounts, set a unique development-only `BOOKLEAF_DEMO_PASSWORD` with at least 12 characters, keep `NODE_ENV=development`, then run `pnpm --filter @repo/auth provision:demo`. The script creates accounts through Better Auth, links each seeded author explicitly, is idempotent, and never overwrites a conflicting link. Do not run it in production or commit the password.
 
+## Ticket operations
+
+Run `pnpm --filter @repo/database migrate:deploy` after pulling the ticket migration, then restart the API. Author ticket APIs are `POST`/`GET /api/v1/author/tickets`, `GET /api/v1/author/tickets/:ticketId`, and `POST /api/v1/author/tickets/:ticketId/messages`. Admin ticket APIs are under `/api/v1/admin/tickets` for queue, detail, status, priority, category, assignment, public messages, and private notes.
+
+Ticket categories and priorities are fixed enums. An author can only link a ticket to their own book and never receives internal notes or audit events. Admin mutations require `{ "version": <current ticket version> }`; reload on `409 TICKET_VERSION_CONFLICT`. Closed tickets cannot be reopened or receive author replies. There is no notification, SSE, file upload, or AI classification in this milestone.
+
 The web app uses port 3000, API port 4000, and worker port 4001 by default. OpenAPI JSON is exposed at `/api/v1/openapi.json`; liveness and readiness are `/api/v1/health/live` and `/api/v1/health/ready`.
 
 ## Verification

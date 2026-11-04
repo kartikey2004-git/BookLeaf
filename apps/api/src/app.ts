@@ -9,16 +9,23 @@ import { createApiRouter } from "./routes/index.js";
 import { createAuthorRouter } from "./routes/author.js";
 import type { SessionResolver } from "./middleware/author-auth.js";
 import type { AuthorService } from "./modules/author/service.js";
+import type { TicketService } from "./modules/ticket/service.js";
+import { createTicketRouters } from "./routes/tickets.js";
 
 export type AuthorRouteDependencies = {
   getSession: SessionResolver;
   authorService: AuthorService;
 };
 
+export type TicketRouteDependencies = AuthorRouteDependencies & {
+  ticketService: TicketService;
+};
+
 export function createApp(
   environment: ApiEnvironment = getEnvironment(),
   authHandler?: RequestHandler,
   authorDependencies?: AuthorRouteDependencies,
+  ticketDependencies?: TicketRouteDependencies,
 ): Express {
   const app = express();
   const allowedOrigins = new Set(
@@ -50,6 +57,15 @@ export function createApp(
         authorDependencies.authorService,
       ),
     );
+  }
+  if (ticketDependencies) {
+    const tickets = createTicketRouters(
+      ticketDependencies.getSession,
+      ticketDependencies.authorService,
+      ticketDependencies.ticketService,
+    );
+    app.use("/api/v1", tickets.author);
+    app.use("/api/v1", tickets.admin);
   }
   app.use(notFound);
   app.use(errorHandler);
