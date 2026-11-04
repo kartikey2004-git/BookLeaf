@@ -1,5 +1,9 @@
+import { fileURLToPath } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { config } from "dotenv";
 import { PrismaClient } from "./generated/prisma/client.js";
+
+config({ path: fileURLToPath(new URL("../../../.env", import.meta.url)) });
 
 const databaseUrl = process.env.DATABASE_URL;
 
