@@ -3,6 +3,7 @@
 Act as a Senior Software Engineer continuing the existing BookLeaf Author Support & Communication Portal.
 
 Task 01 has been implemented:
+
 - Prisma 7 + PostgreSQL domain models
 - 10 authors and 18 books seeded
 - 46 book distribution associations
@@ -88,6 +89,7 @@ Support sensible pagination and deterministic ordering.
 Return a single book belonging to the authenticated author.
 
 Include:
+
 - Book metadata
 - Publication status
 - ISBN
@@ -102,6 +104,7 @@ Return 404 for inaccessible or nonexistent book resources to avoid leaking owner
 Return an author dashboard summary using existing persisted data.
 
 Possible fields:
+
 - Total books
 - Published books
 - Books in production

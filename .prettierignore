@@ -4,6 +4,12 @@ node_modules/
 .next/
 dist/
 coverage/
+**/node_modules/
+**/.turbo/
+**/.next/
+**/dist/
+**/coverage/
 packages/database/src/generated/
+pnpm-lock.yaml
 prompt.md
 prompt2.md

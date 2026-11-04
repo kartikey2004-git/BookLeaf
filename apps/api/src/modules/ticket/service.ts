@@ -68,6 +68,16 @@ const authorTicketSelection = {
 
 const adminTicketSelection = {
   ...authorTicketSelection,
+  aiSuggestedCategory: true,
+  aiSuggestedPriority: true,
+  aiClassificationConfidence: true,
+  aiPriorityConfidence: true,
+  aiClassificationReasoning: true,
+  aiPriorityReasoning: true,
+  aiKnowledgeSections: true,
+  aiStatus: true,
+  aiProcessedAt: true,
+  aiError: true,
   author: { select: { externalId: true, name: true, email: true, city: true } },
   assignedAdmin: { select: { id: true, name: true, email: true } },
   internalNotes: {
@@ -155,6 +165,16 @@ function authorTicket(ticket: {
 
 function adminTicket(
   ticket: Parameters<typeof authorTicket>[0] & {
+    aiSuggestedCategory: string | null;
+    aiSuggestedPriority: string | null;
+    aiClassificationConfidence: number | null;
+    aiPriorityConfidence: number | null;
+    aiClassificationReasoning: string | null;
+    aiPriorityReasoning: string | null;
+    aiKnowledgeSections: unknown;
+    aiStatus: string;
+    aiProcessedAt: Date | null;
+    aiError: string | null;
     author: { externalId: string; name: string; email: string; city: string };
     assignedAdmin: { id: string; name: string; email: string } | null;
     internalNotes: Array<{
@@ -174,6 +194,18 @@ function adminTicket(
 ) {
   return {
     ...authorTicket(ticket),
+    ai: {
+      suggestedCategory: ticket.aiSuggestedCategory,
+      suggestedPriority: ticket.aiSuggestedPriority,
+      classificationConfidence: ticket.aiClassificationConfidence,
+      priorityConfidence: ticket.aiPriorityConfidence,
+      classificationReasoning: ticket.aiClassificationReasoning,
+      priorityReasoning: ticket.aiPriorityReasoning,
+      knowledgeSections: ticket.aiKnowledgeSections,
+      status: ticket.aiStatus,
+      processedAt: date(ticket.aiProcessedAt),
+      error: ticket.aiError,
+    },
     author: ticket.author,
     assignedAdmin: ticket.assignedAdmin,
     internalNotes: ticket.internalNotes.map((note) => ({
@@ -474,7 +506,11 @@ export const prismaTicketService: TicketService = {
     await prisma.$transaction(async (tx) => {
       const updated = await tx.ticket.updateMany({
         where: { id: ticketId, version },
-        data: { priority, version: { increment: 1 } },
+        data: {
+          priority,
+          priorityOverriddenAt: new Date(),
+          version: { increment: 1 },
+        },
       });
       if (updated.count !== 1)
         throw new HttpError(
@@ -504,7 +540,11 @@ export const prismaTicketService: TicketService = {
     await prisma.$transaction(async (tx) => {
       const updated = await tx.ticket.updateMany({
         where: { id: ticketId, version },
-        data: { category, version: { increment: 1 } },
+        data: {
+          category,
+          categoryOverriddenAt: new Date(),
+          version: { increment: 1 },
+        },
       });
       if (updated.count !== 1)
         throw new HttpError(
