@@ -76,6 +76,7 @@ Do not create unnecessary entities. Choose the simplest normalized representatio
 Before implementation, evaluate:
 
 ### Author
+
 - Internal primary key.
 - External author identifier.
 - Name.
@@ -85,6 +86,7 @@ Before implementation, evaluate:
 - Joined date.
 
 ### Book
+
 - Internal primary key.
 - External book identifier.
 - Author relationship.
@@ -97,6 +99,7 @@ Before implementation, evaluate:
 - Print partner.
 
 ### Sales and Royalties
+
 - Total copies sold.
 - Royalty per copy.
 - Total royalty earned.
@@ -105,12 +108,14 @@ Before implementation, evaluate:
 - Last royalty payout date.
 
 ### Distribution
+
 - Book-to-platform relationship.
 - Unique platform association per book.
 
 Preserve the original source identifiers and all supplied values.
 
 Consider:
+
 - Appropriate database types.
 - Decimal and monetary precision.
 - Date-only semantics.

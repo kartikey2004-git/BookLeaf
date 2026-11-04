@@ -63,6 +63,7 @@ export function createApp(
       ticketDependencies.getSession,
       ticketDependencies.authorService,
       ticketDependencies.ticketService,
+      environment,
     );
     app.use("/api/v1", tickets.author);
     app.use("/api/v1", tickets.admin);

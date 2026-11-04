@@ -13,6 +13,14 @@ import {
   type TicketService,
 } from "../modules/ticket/service.js";
 import type { AuthorService } from "../modules/author/service.js";
+import {
+  AiProviderError,
+  completeJson,
+  draftPrompt,
+  draftSchema,
+} from "@repo/ai";
+import type { ApiEnvironment } from "../config/env.js";
+import { createInngestClient, publishTicketCreated } from "../lib/inngest.js";
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -54,6 +62,7 @@ export function createTicketRouters(
   getSession: SessionResolver,
   authorService: AuthorService,
   ticketService: TicketService,
+  environment?: ApiEnvironment,
 ): { author: Router; admin: Router } {
   const author = Router();
   author.use("/author", createRequireAuthor(getSession, authorService));
@@ -64,6 +73,11 @@ export function createTicketRouters(
         request.authorIdentity!.userId,
         ticketInputSchema.parse(request.body),
       );
+      if (environment?.INNGEST_EVENT_KEY) {
+        publishTicketCreated(createInngestClient(environment), ticket.id).catch(
+          () => undefined,
+        );
+      }
       response.status(201).json({ ticket });
     } catch (error) {
       next(error);
@@ -227,6 +241,55 @@ export function createTicketRouters(
         });
       } catch (error) {
         next(error);
+      }
+    },
+  );
+  admin.post(
+    "/admin/tickets/:ticketId/ai-draft",
+    async (request, response, next) => {
+      try {
+        const { ticketId } = ticketIdSchema.parse(request.params);
+        const ticket = await ticketService.getAdmin(ticketId);
+        if (!ticket)
+          throw new HttpError(404, "NOT_FOUND", "Ticket was not found");
+        if (!environment?.GEMINI_API_KEY)
+          throw new HttpError(
+            503,
+            "AI_UNAVAILABLE",
+            "AI drafting is not configured",
+          );
+        const conversation = (ticket.messages ?? [])
+          .slice(-8)
+          .map((item) => `${item.sender.role}: ${item.content}`)
+          .join("\n");
+        const draft = await completeJson(
+          {
+            apiKey: environment.GEMINI_API_KEY,
+            model: environment.GEMINI_MODEL,
+            timeoutMs: environment.GEMINI_TIMEOUT_MS,
+          },
+          draftPrompt(
+            `Subject: ${ticket.subject}\nDescription: ${ticket.description}\nConversation:\n${conversation}`,
+          ),
+          draftSchema,
+        );
+        response.json({
+          draft: draft.draft,
+          recommendations: {
+            category: ticket.ai.suggestedCategory,
+            priority: ticket.ai.suggestedPriority,
+          },
+        });
+      } catch (error) {
+        if (error instanceof AiProviderError) {
+          const status =
+            error.kind === "AUTH"
+              ? 502
+              : error.kind === "INVALID_OUTPUT"
+                ? 502
+                : 503;
+          next(new HttpError(status, "AI_UNAVAILABLE", error.message));
+        } else next(error);
       }
     },
   );

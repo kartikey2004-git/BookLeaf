@@ -4,7 +4,6 @@ export default function GlobalError({
   error: _error,
   reset,
 }: Readonly<{ error: Error & { digest?: string }; reset: () => void }>) {
-  // Error details intentionally stay out of the browser UI and logs at this boundary.
   return (
     <html lang="en">
       <body className="grid min-h-screen place-items-center p-6">

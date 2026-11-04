@@ -108,6 +108,13 @@ enum TicketAuditAction {
   INTERNAL_NOTE_CREATED
 }
 
+enum AiProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 model Ticket {
   id              String         @id @default(cuid())
   reference       String         @unique
@@ -125,6 +132,22 @@ model Ticket {
   resolvedAt      DateTime?
   closedAt        DateTime?
   version         Int            @default(0)
+  aiSuggestedCategory TicketCategory?
+  aiSuggestedPriority TicketPriority?
+  aiClassificationConfidence Float?
+  aiPriorityConfidence Float?
+  aiClassificationReasoning String?
+  aiPriorityReasoning String?
+  aiKnowledgeSections Json?
+  aiStatus        AiProcessingStatus @default(PENDING)
+  aiProvider      String?
+  aiModel         String?
+  aiPromptVersion String?
+  aiProcessedAt   DateTime?
+  aiError         String?
+  aiAttempts      Int            @default(0)
+  categoryOverriddenAt DateTime?
+  priorityOverriddenAt DateTime?
   messages        TicketMessage[]
   internalNotes   TicketInternalNote[]
   auditEvents     TicketAuditEvent[]

@@ -8,12 +8,7 @@ import {
   messaging,
   product,
 } from "../_content/landing-content";
-import {
-  ArrowLink,
-  PlannedBadge,
-  Rails,
-  SplitHeading,
-} from "./primitives";
+import { ArrowLink, PlannedBadge, Rails, SplitHeading } from "./primitives";
 
 type Feature = (typeof product.features)[number];
 

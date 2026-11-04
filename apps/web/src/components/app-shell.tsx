@@ -6,10 +6,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     <div className="min-h-screen">
       <header className="border-b border-(--border) bg-(--surface)">
         <div className="mx-auto flex max-w-6xl items-center gap-2 px-6 py-4">
-          <Activity
-            aria-hidden="true"
-            className="h-5 w-5 text-(--accent)"
-          />
+          <Activity aria-hidden="true" className="h-5 w-5 text-(--accent)" />
           <span className="font-semibold tracking-tight">
             Application Foundation
           </span>

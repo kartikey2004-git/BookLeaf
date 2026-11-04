@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { ArrowRight, ChevronDown, LogOut, Menu, UserRound, X } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronDown,
+  LogOut,
+  Menu,
+  UserRound,
+  X,
+} from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { meta, navigation } from "../_content/landing-content";
 import { HashLink } from "./hash-link";

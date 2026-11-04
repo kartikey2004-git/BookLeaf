@@ -26,6 +26,10 @@ The API verifies every author request with Better Auth server-side session looku
 
 The User table has a minimal `AUTHOR` or `ADMIN` role field for future policy checks. Current author routes do not grant special admin access.
 
+## AI intelligence
+
+The server-only `@repo/ai` package uses Google's official `@google/genai` SDK with configurable Gemini model and timeout. It validates all JSON through Zod, treats ticket text as untrusted input, and includes only selected sections from the module-relative canonical knowledge base. Ticket-created events invoke the Inngest worker, which writes only `aiSuggested*` fields and processing metadata. A bounded ten-minute recovery sweep picks up tickets still `PENDING` if the post-commit event publication window is lost. It never updates the administrator-owned category or priority fields, so retries cannot overwrite a manual decision. Draft generation is an authenticated admin API action and cannot create a public message.
+
 ## Ticket operations
 
 Tickets belong to one Author and may link to one of that author's Books. `TicketMessage` stores public author/support conversation. `TicketInternalNote` is administrator-only and never selected by author routes. `TicketAuditEvent` records actor, action, timestamp, and minimal change metadata for creates, updates, messages, and notes.

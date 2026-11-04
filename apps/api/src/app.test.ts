@@ -9,6 +9,8 @@ const app = createApp({
   WEB_ORIGIN: "http://localhost:3000",
   LOG_LEVEL: "silent",
   READINESS_CHECK_DATABASE: false,
+  GEMINI_MODEL: "gemini-2.5-flash",
+  GEMINI_TIMEOUT_MS: 15_000,
 });
 
 describe("API foundation", () => {
