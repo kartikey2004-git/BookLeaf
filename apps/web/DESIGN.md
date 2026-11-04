@@ -33,22 +33,23 @@ The live Wix theme defines Avenir LT as the core typeface and DIN Next for navig
 
 ```css
 :root {
-  --font-display: "Avenir LT W01 85 Heavy", Avenir, Helvetica, Arial, sans-serif;
+  --font-display:
+    "Avenir LT W01 85 Heavy", Avenir, Helvetica, Arial, sans-serif;
   --font-body: "Avenir LT W01 35 Light", Avenir, Helvetica, Arial, sans-serif;
   --font-nav: "DIN Next W01 Light", "DIN Next", Arial, sans-serif;
 }
 ```
 
-| Role | Size | Weight | Line height |
-| --- | ---: | --- | ---: |
-| Display | 90px | heavy | 1.4 |
-| H1 | 56px | light | 1.4 |
-| H2 | 50px | light | 1.4 |
-| H3 | 33px | heavy | 1.4 |
-| H4 | 20px | light | 1.4 |
-| Body | 17px | light | 1.4 |
-| Small | 14px | light | 1.4 |
-| Micro / navigation | 12-16px | light | 1.4 |
+| Role               |    Size | Weight | Line height |
+| ------------------ | ------: | ------ | ----------: |
+| Display            |    90px | heavy  |         1.4 |
+| H1                 |    56px | light  |         1.4 |
+| H2                 |    50px | light  |         1.4 |
+| H3                 |    33px | heavy  |         1.4 |
+| H4                 |    20px | light  |         1.4 |
+| Body               |    17px | light  |         1.4 |
+| Small              |    14px | light  |         1.4 |
+| Micro / navigation | 12-16px | light  |         1.4 |
 
 For responsive work, scale display and headline text down substantially rather than preserving desktop sizes.
 

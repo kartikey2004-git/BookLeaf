@@ -5,7 +5,10 @@ const moneySchema = z
   .number()
   .finite()
   .nonnegative()
-  .refine((value) => Number.isInteger(value * 100), "must have at most two decimal places");
+  .refine(
+    (value) => Number.isInteger(value * 100),
+    "must have at most two decimal places",
+  );
 
 const bookSchema = z.object({
   book_id: z.string().min(1),
@@ -40,10 +43,14 @@ const datasetSchema = z.object({
 });
 
 export type BookLeafDataset = z.infer<typeof datasetSchema>;
-export type NormalizedAuthor = Omit<BookLeafDataset["authors"][number], "books">;
-export type NormalizedBook = BookLeafDataset["authors"][number]["books"][number] & {
-  authorExternalId: string;
-};
+export type NormalizedAuthor = Omit<
+  BookLeafDataset["authors"][number],
+  "books"
+>;
+export type NormalizedBook =
+  BookLeafDataset["authors"][number]["books"][number] & {
+    authorExternalId: string;
+  };
 
 export type NormalizedDataset = {
   authors: NormalizedAuthor[];
@@ -62,7 +69,9 @@ function toCents(value: number): number {
 }
 
 function assertUnique(values: string[], label: string): void {
-  const duplicates = values.filter((value, index) => values.indexOf(value) !== index);
+  const duplicates = values.filter(
+    (value, index) => values.indexOf(value) !== index,
+  );
   if (duplicates.length > 0) {
     throw new DatasetIntegrityError(`Duplicate ${label}: ${duplicates[0]}`);
   }
@@ -72,7 +81,10 @@ export function validateAndNormalizeDataset(input: unknown): NormalizedDataset {
   const parsed = datasetSchema.parse(input);
   const authors = parsed.authors.map(({ books: _books, ...author }) => author);
   const books = parsed.authors.flatMap((author) =>
-    author.books.map((book) => ({ ...book, authorExternalId: author.author_id })),
+    author.books.map((book) => ({
+      ...book,
+      authorExternalId: author.author_id,
+    })),
   );
 
   assertDatasetIntegrity({ authors, books });
@@ -80,27 +92,50 @@ export function validateAndNormalizeDataset(input: unknown): NormalizedDataset {
   return { authors, books };
 }
 
-export function assertDatasetIntegrity({ authors, books }: NormalizedDataset): void {
-  assertUnique(authors.map((author) => author.author_id), "author external ID");
-  assertUnique(authors.map((author) => author.email), "author email");
-  assertUnique(books.map((book) => book.book_id), "book external ID");
+export function assertDatasetIntegrity({
+  authors,
+  books,
+}: NormalizedDataset): void {
+  assertUnique(
+    authors.map((author) => author.author_id),
+    "author external ID",
+  );
+  assertUnique(
+    authors.map((author) => author.email),
+    "author email",
+  );
+  assertUnique(
+    books.map((book) => book.book_id),
+    "book external ID",
+  );
 
   for (const book of books) {
     if (!authors.some((author) => author.author_id === book.authorExternalId)) {
-      throw new DatasetIntegrityError(`Missing author for book ${book.book_id}`);
+      throw new DatasetIntegrityError(
+        `Missing author for book ${book.book_id}`,
+      );
     }
-    if (toCents(book.total_royalty_earned) !== toCents(book.royalty_paid) + toCents(book.royalty_pending)) {
-      throw new DatasetIntegrityError(`Royalty reconciliation failed for book ${book.book_id}`);
+    if (
+      toCents(book.total_royalty_earned) !==
+      toCents(book.royalty_paid) + toCents(book.royalty_pending)
+    ) {
+      throw new DatasetIntegrityError(
+        `Royalty reconciliation failed for book ${book.book_id}`,
+      );
     }
     if (
       book.author_royalty_per_copy !== null &&
       toCents(book.total_royalty_earned) !==
         toCents(book.author_royalty_per_copy) * book.total_copies_sold
     ) {
-      throw new DatasetIntegrityError(`Royalty per-copy reconciliation failed for book ${book.book_id}`);
+      throw new DatasetIntegrityError(
+        `Royalty per-copy reconciliation failed for book ${book.book_id}`,
+      );
     }
     if (book.author_royalty_per_copy === null && book.total_copies_sold > 0) {
-      throw new DatasetIntegrityError(`Missing royalty per copy for sold book ${book.book_id}`);
+      throw new DatasetIntegrityError(
+        `Missing royalty per copy for sold book ${book.book_id}`,
+      );
     }
     assertUnique(book.available_on, `platform for book ${book.book_id}`);
   }

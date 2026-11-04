@@ -37,7 +37,8 @@ function createStore(): SeedStore & { counts: () => [number, number, number] } {
       platforms.set(name, current);
       return current;
     },
-    hasDistribution: async (bookId, platformId) => distributions.has(`${bookId}:${platformId}`),
+    hasDistribution: async (bookId, platformId) =>
+      distributions.has(`${bookId}:${platformId}`),
     upsertDistribution: async (bookId, platformId) => {
       const key = `${bookId}:${platformId}`;
       const current = distributions.get(key) ?? record();
@@ -52,7 +53,9 @@ function createStore(): SeedStore & { counts: () => [number, number, number] } {
 }
 
 async function readDataset(): Promise<unknown> {
-  const path = fileURLToPath(new URL("../../../../prompts/sample.json", import.meta.url));
+  const path = fileURLToPath(
+    new URL("../../../../prompts/sample.json", import.meta.url),
+  );
   return JSON.parse(await readFile(path, "utf8")) as unknown;
 }
 
@@ -61,23 +64,34 @@ describe("BookLeaf sample-data seed", () => {
     const normalized = validateAndNormalizeDataset(await readDataset());
     expect(normalized.authors).toHaveLength(10);
     expect(normalized.books).toHaveLength(18);
-    expect(normalized.books.find((book) => book.book_id === "BK001")?.authorExternalId).toBe("AUTH001");
+    expect(
+      normalized.books.find((book) => book.book_id === "BK001")
+        ?.authorExternalId,
+    ).toBe("AUTH001");
   });
 
   it("rejects duplicate external identifiers", async () => {
-    const data = (await readDataset()) as { authors: Array<{ author_id: string }> };
+    const data = (await readDataset()) as {
+      authors: Array<{ author_id: string }>;
+    };
     data.authors[1]!.author_id = data.authors[0]!.author_id;
-    expect(() => validateAndNormalizeDataset(data)).toThrow("Duplicate author external ID");
+    expect(() => validateAndNormalizeDataset(data)).toThrow(
+      "Duplicate author external ID",
+    );
   });
 
   it("rejects missing author references and royalty discrepancies", async () => {
     const normalized = validateAndNormalizeDataset(await readDataset());
     normalized.books[0]!.authorExternalId = "MISSING";
-    expect(() => assertDatasetIntegrity(normalized)).toThrow(DatasetIntegrityError);
+    expect(() => assertDatasetIntegrity(normalized)).toThrow(
+      DatasetIntegrityError,
+    );
 
     normalized.books[0]!.authorExternalId = "AUTH001";
     normalized.books[0]!.royalty_pending += 1;
-    expect(() => assertDatasetIntegrity(normalized)).toThrow("Royalty reconciliation failed");
+    expect(() => assertDatasetIntegrity(normalized)).toThrow(
+      "Royalty reconciliation failed",
+    );
   });
 
   it("is idempotent and preserves author-book and platform mappings", async () => {

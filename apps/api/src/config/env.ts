@@ -22,6 +22,14 @@ const environmentSchema = z.object({
   CORS_ORIGINS: z.string().optional(),
   INNGEST_EVENT_KEY: optionalNonEmptyString,
   INNGEST_SIGNING_KEY: optionalNonEmptyString,
+  GEMINI_API_KEY: optionalNonEmptyString,
+  GEMINI_MODEL: z.string().min(1).default("gemini-2.5-flash"),
+  GEMINI_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(1000)
+    .max(120000)
+    .default(15000),
   READINESS_CHECK_DATABASE: booleanFromString.optional().default(false),
 });
 

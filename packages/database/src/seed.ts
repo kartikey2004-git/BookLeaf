@@ -70,7 +70,8 @@ function makePrismaSeedStore(
 ): SeedStore {
   return {
     transaction,
-    findAuthor: (externalId) => database.author.findUnique({ where: { externalId } }),
+    findAuthor: (externalId) =>
+      database.author.findUnique({ where: { externalId } }),
     upsertAuthor: (author) =>
       database.author.upsert({
         where: { externalId: author.author_id },
@@ -90,7 +91,8 @@ function makePrismaSeedStore(
           joinedDate: toDateOnly(author.joined_date)!,
         },
       }),
-    findBook: (externalId) => database.book.findUnique({ where: { externalId } }),
+    findBook: (externalId) =>
+      database.book.findUnique({ where: { externalId } }),
     upsertBook: (book) =>
       database.book.upsert({
         where: { externalId: book.book_id },
@@ -98,7 +100,12 @@ function makePrismaSeedStore(
         update: bookData(book),
       }),
     findPlatform: (name) => database.platform.findUnique({ where: { name } }),
-    upsertPlatform: (name) => database.platform.upsert({ where: { name }, create: { name }, update: {} }),
+    upsertPlatform: (name) =>
+      database.platform.upsert({
+        where: { name },
+        create: { name },
+        update: {},
+      }),
     hasDistribution: async (bookId, platformId) =>
       (await database.bookDistribution.findUnique({
         where: { bookId_platformId: { bookId, platformId } },
@@ -125,7 +132,10 @@ export function createPrismaSeedStore(client: PrismaClient): SeedStore {
   );
 }
 
-export async function seedDataset(input: unknown, store: SeedStore): Promise<SeedSummary> {
+export async function seedDataset(
+  input: unknown,
+  store: SeedStore,
+): Promise<SeedSummary> {
   const dataset = validateAndNormalizeDataset(input);
   let recordsUpdated = 0;
 
@@ -139,8 +149,10 @@ export async function seedDataset(input: unknown, store: SeedStore): Promise<See
       const seededBook = await transaction.upsertBook(book);
       for (const platformName of book.available_on) {
         let platform = await transaction.findPlatform(platformName);
-        if (!platform) platform = await transaction.upsertPlatform(platformName);
-        if (await transaction.hasDistribution(seededBook.id, platform.id)) recordsUpdated += 1;
+        if (!platform)
+          platform = await transaction.upsertPlatform(platformName);
+        if (await transaction.hasDistribution(seededBook.id, platform.id))
+          recordsUpdated += 1;
         await transaction.upsertDistribution(seededBook.id, platform.id);
       }
     }
@@ -159,7 +171,9 @@ export async function seedDataset(input: unknown, store: SeedStore): Promise<See
   };
 }
 
-function decimalToCents(value: { toFixed(fractionDigits?: number): string }): number {
+function decimalToCents(value: {
+  toFixed(fractionDigits?: number): string;
+}): number {
   return Math.round(Number(value.toFixed(2)) * 100);
 }
 
@@ -169,34 +183,46 @@ export async function verifySeedPersistence(
 ): Promise<DatabaseIntegritySummary> {
   const authorExternalIds = dataset.authors.map((author) => author.author_id);
   const bookExternalIds = dataset.books.map((book) => book.book_id);
-  const [authors, books, distributionAssociations, royaltyRecords] = await Promise.all([
-    client.author.count({ where: { externalId: { in: authorExternalIds } } }),
-    client.book.count({ where: { externalId: { in: bookExternalIds } } }),
-    client.bookDistribution.count({ where: { book: { externalId: { in: bookExternalIds } } } }),
-    client.book.findMany({
-      where: { externalId: { in: bookExternalIds } },
-      select: {
-        totalRoyaltyEarned: true,
-        royaltyPaid: true,
-        royaltyPending: true,
-        author: { select: { id: true } },
-      },
-    }),
-  ]);
+  const [authors, books, distributionAssociations, royaltyRecords] =
+    await Promise.all([
+      client.author.count({ where: { externalId: { in: authorExternalIds } } }),
+      client.book.count({ where: { externalId: { in: bookExternalIds } } }),
+      client.bookDistribution.count({
+        where: { book: { externalId: { in: bookExternalIds } } },
+      }),
+      client.book.findMany({
+        where: { externalId: { in: bookExternalIds } },
+        select: {
+          totalRoyaltyEarned: true,
+          royaltyPaid: true,
+          royaltyPending: true,
+          author: { select: { id: true } },
+        },
+      }),
+    ]);
   const orphanBooks = royaltyRecords.filter((book) => !book.author).length;
   const invalidRoyaltyRecords = royaltyRecords.filter(
     (book) =>
       decimalToCents(book.totalRoyaltyEarned) !==
-        decimalToCents(book.royaltyPaid) + decimalToCents(book.royaltyPending) ||
+        decimalToCents(book.royaltyPaid) +
+          decimalToCents(book.royaltyPending) ||
       decimalToCents(book.royaltyPaid) < 0 ||
       decimalToCents(book.royaltyPending) < 0,
   ).length;
 
-  return { authors, books, distributionAssociations, orphanBooks, invalidRoyaltyRecords };
+  return {
+    authors,
+    books,
+    distributionAssociations,
+    orphanBooks,
+    invalidRoyaltyRecords,
+  };
 }
 
 export async function loadSampleDataset(): Promise<unknown> {
-  const samplePath = fileURLToPath(new URL("../../../prompts/sample.json", import.meta.url));
+  const samplePath = fileURLToPath(
+    new URL("../../../prompts/sample.json", import.meta.url),
+  );
   return JSON.parse(await readFile(samplePath, "utf8")) as unknown;
 }
 
@@ -204,13 +230,18 @@ async function main(): Promise<void> {
   const { prisma } = await import("./index.js");
   const input = await loadSampleDataset();
   const summary = await seedDataset(input, createPrismaSeedStore(prisma));
-  const databaseIntegrity = await verifySeedPersistence(validateAndNormalizeDataset(input), prisma);
+  const databaseIntegrity = await verifySeedPersistence(
+    validateAndNormalizeDataset(input),
+    prisma,
+  );
   console.info(JSON.stringify({ ...summary, databaseIntegrity }));
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main().catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : "Sample data seed failed");
+    console.error(
+      error instanceof Error ? error.message : "Sample data seed failed",
+    );
     process.exitCode = 1;
   });
 }

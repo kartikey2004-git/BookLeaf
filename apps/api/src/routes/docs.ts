@@ -160,6 +160,24 @@ const openApiDocument = {
         responses: { "201": { description: "Created message" } },
       },
     },
+    "/api/v1/admin/tickets/{ticketId}/ai-draft": {
+      post: {
+        summary: "Generate an administrator-reviewable Gemini support draft",
+        description:
+          "Requires an administrator session. The draft is never sent or stored as a public ticket message.",
+        parameters: [{ name: "ticketId", in: "path", required: true }],
+        responses: {
+          "200": {
+            description: "Structured draft and current AI recommendations",
+          },
+          "401": { description: "Unauthenticated" },
+          "403": { description: "Administrator access required" },
+          "404": { description: "Ticket not found" },
+          "502": { description: "Invalid provider response" },
+          "503": { description: "Gemini unavailable or unconfigured" },
+        },
+      },
+    },
     "/api/v1/admin/tickets/{ticketId}/internal-notes": {
       post: {
         summary: "Add a private administrator note",

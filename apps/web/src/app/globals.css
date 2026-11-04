@@ -45,7 +45,6 @@ select {
   background: color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
-/* Landing page: warm-paper editorial system with painterly media backdrops. */
 
 .lp {
   --lp-paper: #f5f4f0;
@@ -74,7 +73,6 @@ select {
   border-radius: 4px;
 }
 
-/* ---------- Painterly backdrops (pure CSS stand-ins for watercolour art) ---------- */
 
 .lp-paint {
   position: relative;
@@ -91,7 +89,6 @@ select {
   z-index: -1;
 }
 
-/* Paper grain + brush texture shared by every variant. */
 .lp-paint::after {
   opacity: 0.28;
   mix-blend-mode: multiply;
@@ -105,7 +102,6 @@ select {
     linear-gradient(180deg, #c3d1d3 0%, #dfe3dc 48%, #ece9e1 78%, #f5f4f0 100%);
 }
 
-/* Soft treeline silhouettes along the lower edge of the mist backdrop. */
 .lp-paint--mist::before {
   background:
     radial-gradient(
@@ -191,7 +187,6 @@ select {
     linear-gradient(180deg, #b9c4b8 0%, #6f8a74 45%, #3c5644 75%, #22342a 100%);
 }
 
-/* ---------- Dotted canvas used behind the workflow columns ---------- */
 
 .lp-dots {
   background-image: radial-gradient(
@@ -201,7 +196,6 @@ select {
   background-size: 46px 46px;
 }
 
-/* ---------- Underlined text link with arrow ---------- */
 
 .lp-link {
   background-image: linear-gradient(currentColor, currentColor);
@@ -216,8 +210,6 @@ select {
   background-size: 0% 1px;
   background-position: 100% 100%;
 }
-
-/* ---------- Vertical ticker in the closing CTA ---------- */
 
 .lp-ticker-mask {
   mask-image: linear-gradient(
@@ -249,8 +241,6 @@ select {
   animation: lp-ticker 28s linear infinite;
 }
 
-/* ---------- Principles slide progress ---------- */
-
 @keyframes lp-progress {
   from {
     transform: scaleX(0);
@@ -280,7 +270,6 @@ select {
   animation: lp-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* ---------- Accordion (native <details>) ---------- */
 
 .lp details > summary {
   list-style: none;

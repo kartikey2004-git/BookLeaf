@@ -133,6 +133,8 @@ const app = createApp(
     WEB_ORIGIN: "http://localhost:3000",
     LOG_LEVEL: "silent",
     READINESS_CHECK_DATABASE: false,
+    GEMINI_MODEL: "gemini-2.5-flash",
+    GEMINI_TIMEOUT_MS: 15_000,
   },
   undefined,
   dependencies,
@@ -210,5 +212,17 @@ describe("ticket HTTP APIs", () => {
     expect(detail.body.ticket.internalNotes).toHaveLength(1);
     expect(status.status).toBe(200);
     expect(note.status).toBe(201);
+  });
+
+  it("protects AI drafts and never creates a public reply when AI is unavailable", async () => {
+    const author = await request(app)
+      .post("/api/v1/admin/tickets/ticket-1/ai-draft")
+      .set("Cookie", "session=author");
+    const admin = await request(app)
+      .post("/api/v1/admin/tickets/ticket-1/ai-draft")
+      .set("Cookie", "session=admin");
+    expect(author.status).toBe(403);
+    expect(admin.status).toBe(503);
+    expect(admin.body.error.code).toBe("AI_UNAVAILABLE");
   });
 });

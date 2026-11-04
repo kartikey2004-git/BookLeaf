@@ -23,7 +23,7 @@ Money uses PostgreSQL decimal columns: MRP and per-copy royalty use `DECIMAL(12,
 
 ## Author accounts and APIs
 
-Users have a minimal `AUTHOR` default role and an `ADMIN` extension value. No admin route exists yet. Author APIs authenticate server-side with Better Auth, map the verified user ID to `Author.userId`, and return `403 AUTHOR_NOT_LINKED` for a valid user without an author mapping. Books are always queried with the resolved author ID; inaccessible and unknown books both return `404`.
+Users have a minimal `AUTHOR` default role and an `ADMIN` extension value. Author APIs authenticate server-side with Better Auth, map the verified user ID to `Author.userId`, and return `403 AUTHOR_NOT_LINKED` for a valid user without an author mapping. Admin APIs require the server-side `ADMIN` role. Books are always queried with the resolved author ID; inaccessible and unknown books both return `404`.
 
 Available endpoints are `GET /api/v1/author/me`, `GET /api/v1/author/books?page=1&pageSize=20`, `GET /api/v1/author/books/:bookId`, and `GET /api/v1/author/overview`. Monetary API fields are decimal strings to preserve precision.
 
@@ -33,7 +33,11 @@ To provision local demo accounts, set a unique development-only `BOOKLEAF_DEMO_P
 
 Run `pnpm --filter @repo/database migrate:deploy` after pulling the ticket migration, then restart the API. Author ticket APIs are `POST`/`GET /api/v1/author/tickets`, `GET /api/v1/author/tickets/:ticketId`, and `POST /api/v1/author/tickets/:ticketId/messages`. Admin ticket APIs are under `/api/v1/admin/tickets` for queue, detail, status, priority, category, assignment, public messages, and private notes.
 
-Ticket categories and priorities are fixed enums. An author can only link a ticket to their own book and never receives internal notes or audit events. Admin mutations require `{ "version": <current ticket version> }`; reload on `409 TICKET_VERSION_CONFLICT`. Closed tickets cannot be reopened or receive author replies. There is no notification, SSE, file upload, or AI classification in this milestone.
+Ticket categories and priorities are fixed enums. An author can only link a ticket to their own book and never receives internal notes or audit events. Admin mutations require `{ "version": <current ticket version> }`; reload on `409 TICKET_VERSION_CONFLICT`. Closed tickets cannot be reopened or receive author replies.
+
+## Gemini AI support
+
+Set `GEMINI_API_KEY` only in server/worker environments. `GEMINI_MODEL` defaults to `gemini-2.5-flash`, an inexpensive model suitable for short classifications and drafts, and `GEMINI_TIMEOUT_MS` defaults to 15000. The worker receives `bookleaf/ticket.created`, retrieves only relevant canonical knowledge-base sections, and stores AI recommendations separately from administrator category and priority values. It never sends a public reply. `POST /api/v1/admin/tickets/:ticketId/ai-draft` produces a reviewable draft only. Gemini failures are bounded-retried for transient/rate-limit failures; credentials and ticket content are not logged.
 
 The web app uses port 3000, API port 4000, and worker port 4001 by default. OpenAPI JSON is exposed at `/api/v1/openapi.json`; liveness and readiness are `/api/v1/health/live` and `/api/v1/health/ready`.
 
