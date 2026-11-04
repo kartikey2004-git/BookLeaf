@@ -10,7 +10,16 @@ Use Node.js 22 or later, Docker Compose, and pnpm 10. The root package declares 
 2. Start PostgreSQL with `pnpm docker:up` and wait for its health check.
 3. Generate Prisma Client with `pnpm db:generate`.
 4. Create the initial local migration with `pnpm --filter @repo/database migrate:dev -- --name init`.
-5. Start the applications with `pnpm dev`; use package filters to run one process when needed.
+5. Import BookLeaf sample data with `pnpm --filter @repo/database seed`.
+6. Start the applications with `pnpm dev`; use package filters to run one process when needed.
+
+## BookLeaf sample data
+
+`prompts/sample.json` is the source dataset. The database seed validates it before writing, then normalizes its nested authors and books. It upserts Authors and Books by their supplied external IDs, Platforms by name, and BookDistribution rows by their composite book/platform key. Re-running the command is idempotent and does not delete records.
+
+Author business records are separate from Better Auth users. An Author may later be linked to one existing `User` through `Author.userId`; the seed creates neither user accounts nor credentials. Resource routes must derive the Author from the verified user session and enforce ownership. The baseline has no role model, so admin authorization remains a future authentication-policy decision.
+
+Money uses PostgreSQL decimal columns: MRP and per-copy royalty use `DECIMAL(12,2)`; aggregate royalties use `DECIMAL(14,2)`. Dates use PostgreSQL `DATE`. Validation rejects duplicate external IDs or per-book platforms, missing author links, negative values, and royalty records where paid plus pending differs from earned. A royalty ledger is intentionally not modeled; the dataset contains current aggregate balances only.
 
 The web app uses port 3000, API port 4000, and worker port 4001 by default. OpenAPI JSON is exposed at `/api/v1/openapi.json`; liveness and readiness are `/api/v1/health/live` and `/api/v1/health/ready`.
 
