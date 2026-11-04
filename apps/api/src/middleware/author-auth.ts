@@ -2,7 +2,9 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { HttpError } from "./errors.js";
 import type { AuthorService } from "../modules/author/service.js";
 
-export type VerifiedSession = { user: { id: string } };
+export type VerifiedSession = {
+  user: { id: string; role?: string | null | undefined };
+};
 export type SessionResolver = (
   headers: Headers,
 ) => Promise<VerifiedSession | null>;

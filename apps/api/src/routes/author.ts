@@ -19,7 +19,7 @@ export function createAuthorRouter(
   authorService: AuthorService,
 ): Router {
   const router = Router();
-  router.use(createRequireAuthor(getSession, authorService));
+  router.use("/author", createRequireAuthor(getSession, authorService));
 
   router.get("/author/me", async (request, response, next) => {
     try {

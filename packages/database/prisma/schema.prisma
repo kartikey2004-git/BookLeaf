@@ -21,6 +21,10 @@ model User {
   sessions      Session[]
   accounts      Account[]
   author        Author?
+  assignedTickets Ticket[]             @relation("TicketAssignee")
+  ticketMessages TicketMessage[]
+  internalNotes  TicketInternalNote[]
+  ticketAudits   TicketAuditEvent[]
 
   @@map("user")
 }
@@ -36,6 +40,7 @@ model Author {
   userId     String?  @unique
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   books      Book[]
+  tickets    Ticket[]
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -61,11 +66,116 @@ model Book {
   lastRoyaltyPayoutDate  DateTime?          @db.Date
   printPartner           String?
   distributions          BookDistribution[]
+  tickets                Ticket[]
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
 
   @@index([authorId])
   @@index([publicationStatus])
+}
+
+enum TicketCategory {
+  ROYALTY_AND_PAYMENTS
+  ISBN_AND_METADATA
+  PRINTING_AND_QUALITY
+  DISTRIBUTION_AND_AVAILABILITY
+  BOOK_STATUS_AND_PRODUCTION
+  GENERAL_INQUIRY
+}
+
+enum TicketPriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketAuditAction {
+  CREATED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  CATEGORY_CHANGED
+  ASSIGNMENT_CHANGED
+  ADMIN_MESSAGE_CREATED
+  AUTHOR_MESSAGE_CREATED
+  INTERNAL_NOTE_CREATED
+}
+
+model Ticket {
+  id              String         @id @default(cuid())
+  reference       String         @unique
+  authorId        String
+  author          Author         @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  bookId          String?
+  book            Book?          @relation(fields: [bookId], references: [id], onDelete: SetNull)
+  subject         String
+  description     String
+  category        TicketCategory @default(GENERAL_INQUIRY)
+  priority        TicketPriority @default(MEDIUM)
+  status          TicketStatus   @default(OPEN)
+  assignedAdminId String?
+  assignedAdmin   User?          @relation("TicketAssignee", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  version         Int            @default(0)
+  messages        TicketMessage[]
+  internalNotes   TicketInternalNote[]
+  auditEvents     TicketAuditEvent[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([authorId, createdAt])
+  @@index([bookId])
+  @@index([status, priority, createdAt])
+  @@index([assignedAdminId, status, createdAt])
+}
+
+model TicketMessage {
+  id           String   @id @default(cuid())
+  ticketId     String
+  ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderUserId String
+  sender       User     @relation(fields: [senderUserId], references: [id], onDelete: Restrict)
+  content      String
+  createdAt    DateTime @default(now())
+  editedAt     DateTime?
+
+  @@index([ticketId, createdAt])
+  @@index([senderUserId])
+}
+
+model TicketInternalNote {
+  id          String   @id @default(cuid())
+  ticketId    String
+  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  adminUserId String
+  admin       User     @relation(fields: [adminUserId], references: [id], onDelete: Restrict)
+  content     String
+  createdAt   DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+  @@index([adminUserId])
+}
+
+model TicketAuditEvent {
+  id          String            @id @default(cuid())
+  ticketId    String
+  ticket      Ticket            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actorUserId String
+  actor       User              @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  action      TicketAuditAction
+  metadata    Json?
+  createdAt   DateTime          @default(now())
+
+  @@index([ticketId, createdAt])
+  @@index([actorUserId])
 }
 
 model Platform {
