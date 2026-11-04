@@ -226,6 +226,9 @@ importers:
       '@prisma/client':
         specifier: ^7.2.0
         version: 7.10.1(prisma@7.10.1(@types/node@24.19.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@6.0.3))(typescript@6.0.3)
+      '@repo/validation':
+        specifier: workspace:*
+        version: link:../validation
       pg:
         specifier: ^8.16.3
         version: 8.23.1
@@ -245,9 +248,15 @@ importers:
       prisma:
         specifier: ^7.2.0
         version: 7.10.1(@types/node@24.19.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@6.0.3)
+      tsx:
+        specifier: ^4.19.4
+        version: 4.23.15
       typescript:
         specifier: ^6.0.0
         version: 6.0.3
+      vitest:
+        specifier: ^3.2.2
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@24.19.2)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.23.15)(yaml@2.9.1)
 
   packages/ui:
     dependencies:
@@ -5754,7 +5763,6 @@ snapshots:
       magic-string: 0.30.21
     optionalDependencies:
       vite: 7.3.7(@types/node@24.19.2)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.23.15)(yaml@2.9.1)
-    optional: true
 
   '@vitest/pretty-format@3.2.7':
     dependencies:
@@ -7612,7 +7620,6 @@ snapshots:
       - terser
       - tsx
       - yaml
-    optional: true
 
   vite@7.3.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.23.15)(yaml@2.9.1):
     dependencies:
@@ -7645,7 +7652,6 @@ snapshots:
       lightningcss: 1.33.0
       tsx: 4.23.15
       yaml: 2.9.1
-    optional: true
 
   vitest@3.2.7(@types/debug@4.1.13)(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.23.15)(yaml@2.9.1):
     dependencies:
@@ -7730,7 +7736,6 @@ snapshots:
       - terser
       - tsx
       - yaml
-    optional: true
 
   web-streams-polyfill@3.3.3: {}
 

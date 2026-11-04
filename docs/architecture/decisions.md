@@ -19,3 +19,7 @@ Server configuration belongs in `@repo/auth`; the web app imports only its clien
 ## AD-005: No broker in the first SSE iteration
 
 The baseline provides correct single-process connection handling without Redis. A shared broker becomes necessary when events originate in another process or clients require replay/fan-out across multiple API replicas.
+
+## AD-006: BookLeaf aggregate data is normalized without a royalty ledger
+
+Authors and Books retain their source external identifiers. Platforms are normalized and connected through a composite-key distribution table. Current royalty figures are stored as decimal aggregates because the supplied dataset has no payout events or statements. Better Auth Users remain separate from Author records; a nullable one-to-one link supports safe account provisioning later without creating credentials during data import.

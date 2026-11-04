@@ -19,8 +19,71 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
+  author        Author?
 
   @@map("user")
+}
+
+model Author {
+  id         String   @id @default(cuid())
+  externalId String   @unique
+  name       String
+  email      String   @unique
+  phone      String
+  city       String
+  joinedDate DateTime @db.Date
+  userId     String?  @unique
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  books      Book[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Book {
+  id                     String             @id @default(cuid())
+  externalId             String             @unique
+  authorId               String
+  author                 Author             @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  title                  String
+  isbn                   String
+  genre                  String
+  publicationDate        DateTime?          @db.Date
+  publicationStatus      String
+  mrp                    Decimal?           @db.Decimal(12, 2)
+  royaltyPerCopy         Decimal?           @db.Decimal(12, 2)
+  totalCopiesSold        Int
+  totalRoyaltyEarned     Decimal            @db.Decimal(14, 2)
+  royaltyPaid            Decimal            @db.Decimal(14, 2)
+  royaltyPending         Decimal            @db.Decimal(14, 2)
+  lastRoyaltyPayoutDate  DateTime?          @db.Date
+  printPartner           String?
+  distributions          BookDistribution[]
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  @@index([authorId])
+  @@index([publicationStatus])
+}
+
+model Platform {
+  id            String             @id @default(cuid())
+  name          String             @unique
+  distributions BookDistribution[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+}
+
+model BookDistribution {
+  bookId     String
+  platformId String
+  book       Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  platform   Platform @relation(fields: [platformId], references: [id], onDelete: Restrict)
+  createdAt  DateTime @default(now())
+
+  @@id([bookId, platformId])
+  @@index([platformId])
 }
 
 model Session {
