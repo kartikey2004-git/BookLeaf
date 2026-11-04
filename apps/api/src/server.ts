@@ -1,12 +1,16 @@
 import { createServer } from "node:http";
-import { auth } from "@repo/auth";
+import { auth, getVerifiedSession } from "@repo/auth";
 import { toNodeHandler } from "better-auth/node";
 import { createApp } from "./app.js";
 import { getEnvironment } from "./config/env.js";
+import { prismaAuthorService } from "./modules/author/service.js";
 
 const environment = getEnvironment();
 const server = createServer(
-  createApp(environment, toNodeHandler(auth) as never),
+  createApp(environment, toNodeHandler(auth) as never, {
+    getSession: getVerifiedSession,
+    authorService: prismaAuthorService,
+  }),
 );
 
 server.listen(environment.API_PORT, environment.API_HOST, () => {

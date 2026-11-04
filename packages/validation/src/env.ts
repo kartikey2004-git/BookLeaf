@@ -4,6 +4,11 @@ const booleanFromString = z
   .enum(["true", "false"])
   .transform((value) => value === "true");
 
+const optionalNonEmptyString = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.string().min(1).optional(),
+);
+
 export const serverEnvironmentSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -17,8 +22,8 @@ export const serverEnvironmentSchema = z.object({
   BETTER_AUTH_TRUSTED_ORIGINS: z.string().default("http://localhost:3000"),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   API_CORS_ORIGIN: z.url().default("http://localhost:3000"),
-  INNGEST_EVENT_KEY: z.string().min(1).optional(),
-  INNGEST_SIGNING_KEY: z.string().min(1).optional(),
+  INNGEST_EVENT_KEY: optionalNonEmptyString,
+  INNGEST_SIGNING_KEY: optionalNonEmptyString,
   INNGEST_DEV: booleanFromString.optional(),
 });
 

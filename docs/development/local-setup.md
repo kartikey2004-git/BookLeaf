@@ -17,9 +17,17 @@ Use Node.js 22 or later, Docker Compose, and pnpm 10. The root package declares 
 
 `prompts/sample.json` is the source dataset. The database seed validates it before writing, then normalizes its nested authors and books. It upserts Authors and Books by their supplied external IDs, Platforms by name, and BookDistribution rows by their composite book/platform key. Re-running the command is idempotent and does not delete records.
 
-Author business records are separate from Better Auth users. An Author may later be linked to one existing `User` through `Author.userId`; the seed creates neither user accounts nor credentials. Resource routes must derive the Author from the verified user session and enforce ownership. The baseline has no role model, so admin authorization remains a future authentication-policy decision.
+Author business records are separate from Better Auth users. An Author may later be linked to one existing `User` through `Author.userId`; the seed creates neither user accounts nor credentials. Resource routes derive the Author from the verified user session and enforce ownership.
 
 Money uses PostgreSQL decimal columns: MRP and per-copy royalty use `DECIMAL(12,2)`; aggregate royalties use `DECIMAL(14,2)`. Dates use PostgreSQL `DATE`. Validation rejects duplicate external IDs or per-book platforms, missing author links, negative values, and royalty records where paid plus pending differs from earned. A royalty ledger is intentionally not modeled; the dataset contains current aggregate balances only.
+
+## Author accounts and APIs
+
+Users have a minimal `AUTHOR` default role and an `ADMIN` extension value. No admin route exists yet. Author APIs authenticate server-side with Better Auth, map the verified user ID to `Author.userId`, and return `403 AUTHOR_NOT_LINKED` for a valid user without an author mapping. Books are always queried with the resolved author ID; inaccessible and unknown books both return `404`.
+
+Available endpoints are `GET /api/v1/author/me`, `GET /api/v1/author/books?page=1&pageSize=20`, `GET /api/v1/author/books/:bookId`, and `GET /api/v1/author/overview`. Monetary API fields are decimal strings to preserve precision.
+
+To provision local demo accounts, set a unique development-only `BOOKLEAF_DEMO_PASSWORD` with at least 12 characters, keep `NODE_ENV=development`, then run `pnpm --filter @repo/auth provision:demo`. The script creates accounts through Better Auth, links each seeded author explicitly, is idempotent, and never overwrites a conflicting link. Do not run it in production or commit the password.
 
 The web app uses port 3000, API port 4000, and worker port 4001 by default. OpenAPI JSON is exposed at `/api/v1/openapi.json`; liveness and readiness are `/api/v1/health/live` and `/api/v1/health/ready`.
 

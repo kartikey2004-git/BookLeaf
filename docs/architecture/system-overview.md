@@ -18,6 +18,12 @@ The web client talks to Better Auth at the configured API origin and sends cooki
 
 ## Data, jobs, and events
 
-Only Better Auth infrastructure models are in the initial Prisma schema. Application code imports the one shared Prisma client. Inngest functions use event names as versioned contracts, must make writes idempotent, and rely on durable Inngest steps instead of detached promises.
+Prisma stores Better Auth identities plus Author, Book, Platform, and BookDistribution records. An optional unique `Author.userId` links one verified Better Auth User to one author business record. Application code imports the one shared Prisma client. Inngest functions use event names as versioned contracts, must make writes idempotent, and rely on durable Inngest steps instead of detached promises.
+
+## Author resource authorization
+
+The API verifies every author request with Better Auth server-side session lookup. It resolves `session.user.id` through `Author.userId`; the frontend never supplies an author ID. Unauthenticated requests return `401`; authenticated users without a link return `403 AUTHOR_NOT_LINKED`; unavailable books return `404`. Book queries include `authorId` in the database predicate, preventing cross-author access before serialization.
+
+The User table has a minimal `AUTHOR` or `ADMIN` role field for future policy checks. Current author routes do not grant special admin access.
 
 SSE endpoints set standard event-stream headers, issue monotonic per-connection event IDs, send heartbeats, observe disconnects, and clean up timers/listeners. `Last-Event-ID` is an extension seam; durable replay and multi-instance fan-out require a shared event transport once streams must cross API processes.

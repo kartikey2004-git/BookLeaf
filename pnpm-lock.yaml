@@ -192,9 +192,15 @@ importers:
       '@types/node':
         specifier: ^24.10.1
         version: 24.19.2
+      tsx:
+        specifier: ^4.19.4
+        version: 4.23.15
       typescript:
         specifier: ^6.0.0
         version: 6.0.3
+      vitest:
+        specifier: ^3.2.2
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@24.19.2)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.23.15)(yaml@2.9.1)
 
   packages/config:
     devDependencies:
@@ -229,6 +235,9 @@ importers:
       '@repo/validation':
         specifier: workspace:*
         version: link:../validation
+      dotenv:
+        specifier: ^16.6.1
+        version: 16.6.1
       pg:
         specifier: ^8.16.3
         version: 8.23.1
@@ -242,9 +251,6 @@ importers:
       '@types/pg':
         specifier: ^8.15.5
         version: 8.23.1
-      dotenv:
-        specifier: ^16.6.1
-        version: 16.6.1
       prisma:
         specifier: ^7.2.0
         version: 7.10.1(@types/node@24.19.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@6.0.3)
