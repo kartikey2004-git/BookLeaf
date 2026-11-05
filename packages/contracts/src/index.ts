@@ -10,15 +10,18 @@ export const readinessResponseSchema = z.object({
   status: z.enum(["ok", "unavailable"]),
   timestamp: z.string().datetime(),
   requestId: z.string().uuid(),
-  dependencies: z.object({ database: z.enum(["ok", "unavailable"]) }),
+  dependencies: z.object({
+    database: z.enum(["ok", "unavailable", "skipped"]),
+  }),
 });
 
 export const errorResponseSchema = z.object({
   error: z.object({
     code: z.string().min(1),
     message: z.string().min(1),
-    requestId: z.string().uuid(),
+    details: z.unknown().optional(),
   }),
+  requestId: z.string().uuid(),
 });
 
 export const HealthResponseSchema = healthResponseSchema;

@@ -1,25 +1,39 @@
-# Architecture decisions
+# Architecture Decisions
 
-## AD-001: pnpm workspaces and Turborepo
+This record captures the key decisions behind BookLeaf's current application shape.
 
-The baseline uses pnpm workspace protocols for local packages and Turbo for dependency-aware tasks. This keeps application ownership explicit while avoiding a premature deployment topology.
+## AD-001: Keep delivery applications thin
 
-## AD-002: Express remains the API boundary
+The web, API, and worker applications own transport concerns: routing, request validation, authentication boundaries, and deployment entry points. Shared domain types, configuration, authentication helpers, database access, UI primitives, and AI orchestration live in packages.
 
-Next.js renders the frontend; Express owns REST, auth-facing API integration, OpenAPI, health, and SSE. This prevents backend concerns from leaking into route handlers.
+This keeps cross-application behavior consistent without turning the applications into a single tightly coupled runtime.
 
-## AD-003: Prisma 7 adapter-based PostgreSQL client
+## AD-002: Use Express for the API boundary
 
-The database package uses the generated Prisma client with the PostgreSQL adapter and an environment-provided connection string. A process-local singleton prevents connection proliferation during development. Schema contains only Better Auth’s required storage models.
+The API is an Express application composed through route and middleware modules. It serves REST endpoints, OpenAPI, health probes, and a small SSE stream.
 
-## AD-004: Better Auth is centralized
+The design intentionally avoids framework-specific domain code so handlers can be tested with the package-layer dependencies they use.
 
-Server configuration belongs in `@repo/auth`; the web app imports only its client factory. Authentication is distinct from authorization: future protected resource modules must perform ownership/permission checks after session validation.
+## AD-003: Keep Better Auth and product data in one Prisma schema
 
-## AD-005: No broker in the first SSE iteration
+The database package owns the Prisma client, schema, migrations, seed data, and repository helpers. The schema includes both Better Auth storage models and BookLeaf product models such as authors, books, messages, AI jobs, and tickets.
 
-The baseline provides correct single-process connection handling without Redis. A shared broker becomes necessary when events originate in another process or clients require replay/fan-out across multiple API replicas.
+One schema keeps relational integrity, migrations, and local development setup in one place.
 
-## AD-006: BookLeaf aggregate data is normalized without a royalty ledger
+## AD-004: Use Inngest for asynchronous AI work
 
-Authors and Books retain their source external identifiers. Platforms are normalized and connected through a composite-key distribution table. Current royalty figures are stored as decimal aggregates because the supplied dataset has no payout events or statements. Better Auth Users remain separate from Author records; a nullable one-to-one link supports safe account provisioning later without creating credentials during data import.
+AI generation is represented by durable job records and handled asynchronously by the worker. A scheduler recovers eligible work; each worker claim is atomic, and failed jobs have a bounded retry policy.
+
+This avoids holding API requests open for model calls and gives operations a durable record of work state.
+
+## AD-005: Use best-effort SSE without a broker
+
+The API exposes an authenticated `/events` stream for lightweight connection feedback and heartbeats. Connections are capped per user and process and are closed after a bounded lifetime. Event identifiers are UUIDs, not replay cursors.
+
+There is no broker, replay store, or cross-instance fanout. Clients must treat the stream as best effort and refetch authoritative data after reconnecting.
+
+## AD-006: Keep observability structured and bounded
+
+Request logs are structured JSON with a request identifier. API errors use a stable response shape; health endpoints separate liveness from readiness. Sensitive headers and payloads are not logged.
+
+This provides useful operational signals without making logs an uncontrolled data store.

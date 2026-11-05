@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { cn } from "./utils";
 import { deterministicEngine } from "../_content/landing-content";
@@ -33,19 +34,30 @@ export function PrinciplesSection() {
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
-      className="lp-paint relative bg-cover bg-center text-white"
-      style={{
-        backgroundImage:
-          "linear-gradient(90deg, rgba(11, 17, 16, 0.68) 0%, rgba(18, 28, 27, 0.52) 48%, rgba(18, 28, 27, 0.28) 100%), url(/images/ai-support-landscape.jpg)",
-      }}
+      className="lp-paint relative isolate overflow-hidden text-white"
     >
-      <div className="mx-auto max-w-360 px-4 pb-14 pt-16 md:px-6 md:pb-16 md:pt-20 lg:px-24">
+      <Image
+        src="/images/ai-support-landscape.jpg"
+        alt=""
+        fill
+        sizes="100vw"
+        quality={75}
+        className="object-cover"
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-[linear-gradient(90deg,rgba(11,17,16,0.68)_0%,rgba(18,28,27,0.52)_48%,rgba(18,28,27,0.28)_100%)]"
+      />
+      <div className="relative z-10 mx-auto max-w-360 px-4 pb-14 pt-16 md:px-6 md:pb-16 md:pt-20 lg:px-24">
         <h2 className="text-center text-[34px] font-medium leading-[1.15] tracking-[-1.2px] md:text-5xl md:leading-14.5 md:tracking-[-1.5px]">
           {deterministicEngine.title}
         </h2>
 
         <div
           key={layer.title}
+          id="support-workflow-panel"
+          role="tabpanel"
+          aria-labelledby={`support-workflow-tab-${index}`}
           className="lp-fade mt-14 grid items-center gap-12 lg:grid-cols-[1fr_1fr]"
         >
           <div className="flex max-w-115 flex-col">
@@ -89,6 +101,14 @@ export function PrinciplesSection() {
         <div className="mt-12 flex items-center gap-3">
           <button
             type="button"
+            onClick={() => setPaused((value) => !value)}
+            aria-pressed={paused}
+            className="rounded border border-white/60 px-3 py-1 text-sm"
+          >
+            {paused ? "Play carousel" : "Pause carousel"}
+          </button>
+          <button
+            type="button"
             onClick={() => go(-1)}
             aria-label="Previous layer"
             className="flex size-7.5 items-center justify-center rounded-full border border-white/60 transition-colors hover:bg-white/15"
@@ -117,6 +137,9 @@ export function PrinciplesSection() {
                 type="button"
                 role="tab"
                 aria-selected={itemIndex === index}
+                aria-controls="support-workflow-panel"
+                id={`support-workflow-tab-${itemIndex}`}
+                tabIndex={itemIndex === index ? 0 : -1}
                 onClick={() => setIndex(itemIndex)}
                 className={cn(
                   "flex flex-col gap-2 text-left text-xl font-bold uppercase tracking-[0.02em] transition-colors",

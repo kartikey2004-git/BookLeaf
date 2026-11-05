@@ -66,6 +66,11 @@ const authorTicketSelection = {
   },
 } as const;
 
+const authorTicketListSelection = {
+  ...authorTicketSelection,
+  messages: false,
+} as const;
+
 const adminTicketSelection = {
   ...authorTicketSelection,
   aiSuggestedCategory: true,
@@ -367,7 +372,7 @@ export const prismaTicketService: TicketService = {
     const [tickets, total] = await prisma.$transaction([
       prisma.ticket.findMany({
         where,
-        select: authorTicketSelection,
+        select: authorTicketListSelection,
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         skip: (page - 1) * pageSize,
         take: pageSize,

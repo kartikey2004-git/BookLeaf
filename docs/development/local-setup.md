@@ -9,7 +9,7 @@ Use Node.js 22 or later, Docker Compose, and pnpm 10. The root package declares 
 1. Copy `.env.example` to `.env` and replace the local Better Auth secret with a long random value.
 2. Start PostgreSQL with `pnpm docker:up` and wait for its health check.
 3. Generate Prisma Client with `pnpm db:generate`.
-4. Create the initial local migration with `pnpm --filter @repo/database migrate:dev -- --name init`.
+4. Apply committed migrations with `pnpm --filter @repo/database migrate:deploy`.
 5. Import BookLeaf sample data with `pnpm --filter @repo/database seed`.
 6. Start the applications with `pnpm dev`; use package filters to run one process when needed.
 
@@ -47,4 +47,4 @@ Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, and `pnpm build`. Tests that nee
 
 ## Troubleshooting
 
-If Prisma cannot connect, check the Docker health status and ensure `DATABASE_URL` uses the same credentials as Compose. If browser authentication fails, ensure `WEB_URL`, `BETTER_AUTH_URL`, and `BETTER_AUTH_TRUSTED_ORIGINS` match actual origins exactly. Do not disable cookie security in production to work around origin mistakes.
+If Prisma cannot connect, check the Docker health status and ensure `DATABASE_URL` uses the same credentials as Compose. If browser authentication fails, ensure `WEB_ORIGIN`, `CORS_ORIGINS`, `BETTER_AUTH_URL`, and `BETTER_AUTH_TRUSTED_ORIGINS` match actual origins exactly. The API refuses to start when its CORS and Better Auth origin sets differ. Do not disable cookie security in production to work around origin mistakes.

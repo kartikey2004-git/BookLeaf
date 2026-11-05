@@ -1,15 +1,34 @@
 import { randomUUID } from "node:crypto";
 import { Router } from "express";
-import { initializeEventStream, writeEvent } from "../lib/sse.js";
+import type { SessionResolver } from "../middleware/author-auth.js";
+import { createRequireSession } from "../middleware/author-auth.js";
+import { HttpError } from "../middleware/errors.js";
+import {
+  canOpenEventStream,
+  initializeEventStream,
+  writeEvent,
+} from "../lib/sse.js";
 
-export function createEventRouter(): Router {
+export function createEventRouter(getSession: SessionResolver): Router {
   const router = Router();
+  router.use("/events", createRequireSession(getSession));
   router.get("/events", (request, response) => {
-    const cleanup = initializeEventStream(request, response);
+    const userId = request.sessionIdentity!.userId;
+    if (!canOpenEventStream(userId)) {
+      throw new HttpError(
+        429,
+        "SSE_LIMIT_REACHED",
+        "Too many active event streams",
+      );
+    }
+    const cleanup = initializeEventStream(request, response, userId);
     writeEvent(response, {
-      id: request.header("last-event-id") ?? randomUUID(),
+      id: randomUUID(),
       event: "connected",
-      data: { requestId: request.requestId },
+      data: {
+        requestId: request.requestId,
+        replay: "not-supported",
+      },
     });
     request.once("close", cleanup);
   });
