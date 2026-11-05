@@ -54,7 +54,7 @@ function createStore(): SeedStore & { counts: () => [number, number, number] } {
 
 async function readDataset(): Promise<unknown> {
   const path = fileURLToPath(
-    new URL("../../../../prompts/sample.json", import.meta.url),
+    new URL("../../fixtures/bookleaf-sample.json", import.meta.url),
   );
   return JSON.parse(await readFile(path, "utf8")) as unknown;
 }
