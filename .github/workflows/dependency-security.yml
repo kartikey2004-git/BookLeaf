@@ -3,6 +3,7 @@ name: Dependency security
 on:
   pull_request:
     paths:
+      - ".github/workflows/**"
       - "package.json"
       - "pnpm-lock.yaml"
       - "apps/**/package.json"
