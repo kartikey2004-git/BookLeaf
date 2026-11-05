@@ -13,6 +13,10 @@ const HOP_BY_HOP_HEADERS = new Set([
   "transfer-encoding",
   "upgrade",
 ]);
+const DECODED_RESPONSE_HEADERS = new Set([
+  "content-encoding",
+  "content-length",
+]);
 
 async function proxy(
   request: NextRequest,
@@ -69,6 +73,7 @@ async function proxy(
     upstream.headers.forEach((value, key) => {
       if (
         !HOP_BY_HOP_HEADERS.has(key.toLowerCase()) &&
+        !DECODED_RESPONSE_HEADERS.has(key.toLowerCase()) &&
         key.toLowerCase() !== "set-cookie"
       ) {
         responseHeaders.append(key, value);
