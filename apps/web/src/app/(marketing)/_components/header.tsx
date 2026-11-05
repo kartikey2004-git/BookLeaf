@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import Link from "next/link";
 import {
   ArrowRight,
   ChevronDown,
@@ -16,8 +17,8 @@ import { HashLink } from "./hash-link";
 export function AnnouncementBar() {
   return (
     <div className="relative z-10 bg-[#121212] px-4 py-2.5 text-center">
-      <HashLink
-        href="#portal-access"
+      <Link
+        href="/portal"
         className="group inline-flex items-center gap-2 text-sm text-white md:text-base"
       >
         <span className="lp-link">
@@ -25,7 +26,7 @@ export function AnnouncementBar() {
           clear Author Portal.
         </span>
         <ArrowRight className="size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
-      </HashLink>
+      </Link>
     </div>
   );
 }
@@ -52,6 +53,8 @@ export function SiteHeader() {
   const menuId = useId();
   const accountMenuId = useId();
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileMenuRef = useRef<HTMLElement>(null);
   const { data: session } = authClient.useSession();
   const userName = session?.user.name ?? session?.user.email ?? "Account";
   const userInitial = userName.charAt(0).toUpperCase();
@@ -59,6 +62,7 @@ export function SiteHeader() {
   const handleSignOut = async () => {
     setAccountOpen(false);
     await authClient.signOut();
+    window.location.assign("/");
   };
 
   useEffect(() => {
@@ -80,6 +84,11 @@ export function SiteHeader() {
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [accountOpen]);
+
+  useEffect(() => {
+    if (!open) return;
+    mobileMenuRef.current?.querySelector<HTMLAnchorElement>("a")?.focus();
+  }, [open]);
 
   return (
     <header
@@ -145,15 +154,15 @@ export function SiteHeader() {
                       {userName}
                     </p>
                   </div>
-                  <HashLink
-                    href="#portal-access"
+                  <Link
+                    href="/portal"
                     role="menuitem"
                     onClick={() => setAccountOpen(false)}
                     className="mt-1 flex items-center gap-2 rounded-md px-3 py-2 text-sm text-[#121212] transition-colors hover:bg-[#F5F4F0]"
                   >
                     <UserRound className="size-4" />
                     {navigation.account.portal}
-                  </HashLink>
+                  </Link>
                   <button
                     type="button"
                     role="menuitem"
@@ -167,15 +176,16 @@ export function SiteHeader() {
               ) : null}
             </div>
           ) : (
-            <HashLink
-              href="#portal-access"
+            <Link
+              href="/sign-in"
               className="inline-flex h-10 items-center gap-1.5 rounded-md bg-[#121212] px-3 text-xs font-medium text-white! transition-colors hover:bg-[#2B2B2B] sm:gap-2 sm:px-4 sm:text-sm"
             >
               {navigation.account.getStarted}
               <ArrowRight className="hidden size-4 sm:block" />
-            </HashLink>
+            </Link>
           )}
           <button
+            ref={menuButtonRef}
             type="button"
             onClick={() => setOpen((value) => !value)}
             className="flex size-10 items-center justify-center rounded-md border border-[#D3D2CD] lg:hidden"
@@ -192,7 +202,17 @@ export function SiteHeader() {
           id={menuId}
           className="lp-fade border-t border-[#D3D2CD] lg:hidden"
         >
-          <nav aria-label="Mobile" className="flex flex-col px-4 py-3">
+          <nav
+            ref={mobileMenuRef}
+            aria-label="Mobile"
+            className="flex flex-col px-4 py-3"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                setOpen(false);
+                menuButtonRef.current?.focus();
+              }
+            }}
+          >
             {navigation.links.map((link: { href: string; label: string }) => (
               <HashLink
                 key={link.href}

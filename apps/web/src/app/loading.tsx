@@ -1,3 +1,5 @@
+import { Skeleton } from "@repo/ui/components/skeleton";
+
 export default function Loading() {
   return (
     <main
@@ -5,8 +7,8 @@ export default function Loading() {
       aria-busy="true"
       aria-live="polite"
     >
-      <div className="h-5 w-40 animate-pulse rounded bg-(--border)" />
-      <div className="mt-6 h-12 max-w-xl animate-pulse rounded bg-(--border)" />
+      <Skeleton className="h-5 w-40" />
+      <Skeleton className="mt-6 h-12 max-w-xl" />
       <span className="sr-only">Loading application</span>
     </main>
   );

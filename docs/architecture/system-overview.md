@@ -2,7 +2,7 @@
 
 ## Responsibilities and dependency direction
 
-`apps/web` is the Next.js App Router presentation layer. It renders the neutral application shell, uses the shared Better Auth client seam, and calls the public API through a small fetch client. It does not access PostgreSQL directly.
+`apps/web` is the Next.js App Router presentation layer. It renders the marketing pages and protected author/admin portal, uses the shared Better Auth client seam, and calls the API through a small fetch client. It does not access PostgreSQL directly.
 
 `apps/api` is the Express HTTP boundary. Its lifecycle is security headers, CORS and body limits, request ID and structured logging, route handling, and centralized error/404 responses. It owns liveness/readiness, OpenAPI, the authentication integration seam, and reusable SSE transport.
 
@@ -12,13 +12,13 @@ Shared packages are lower-level dependencies: `validation` owns environment and 
 
 ## Request and authentication flow
 
-An API request receives a request ID, structured logger, security headers, CORS decision, and a 1 MB body limit before route dispatch. Routes return the shared success/error contract and route failures to one error handler. Protected routes must use the shared authentication adapter, validate the session server-side, then enforce resource-level authorization in the owning module.
+An API request receives a request ID, structured logger, security headers, CORS decision, unsafe-origin check, and a 1 MB body limit before route dispatch. Routes return a consistent error envelope and route failures to one error handler. Protected routes validate the Better Auth session server-side, then enforce resource-level authorization in the owning module.
 
 The web client talks to Better Auth at the configured API origin and sends cookies with API requests. Better Auth uses the shared Prisma adapter and PostgreSQL. Origins and cookie security behavior are derived from validated environment variables; secrets never reach `NEXT_PUBLIC_*` variables.
 
 ## Data, jobs, and events
 
-Prisma stores Better Auth identities plus Author, Book, Platform, and BookDistribution records. An optional unique `Author.userId` links one verified Better Auth User to one author business record. Application code imports the one shared Prisma client. Inngest functions use event names as versioned contracts, must make writes idempotent, and rely on durable Inngest steps instead of detached promises.
+Prisma stores Better Auth identities plus Author, Book, Platform, ticket, and ticket-AI records. An optional unique `Author.userId` links one verified Better Auth User to one author business record. Application code imports one shared Prisma client. Inngest functions use versioned event names, atomic database claims, bounded retries, and a recovery sweep; they do not rely on detached HTTP promises.
 
 ## Author resource authorization
 
@@ -28,7 +28,7 @@ The User table has a minimal `AUTHOR` or `ADMIN` role field for future policy ch
 
 ## AI intelligence
 
-The server-only `@repo/ai` package uses Google's official `@google/genai` SDK with configurable Gemini model and timeout. It validates all JSON through Zod, treats ticket text as untrusted input, and includes only selected sections from the module-relative canonical knowledge base. Ticket-created events invoke the Inngest worker, which writes only `aiSuggested*` fields and processing metadata. A bounded ten-minute recovery sweep picks up tickets still `PENDING` if the post-commit event publication window is lost. It never updates the administrator-owned category or priority fields, so retries cannot overwrite a manual decision. Draft generation is an authenticated admin API action and cannot create a public message.
+The server-only `@repo/ai` package uses Google's official `@google/genai` SDK with configurable Gemini model and timeout. It validates all JSON through Zod, treats ticket text as untrusted input, and includes selected sections from the canonical knowledge base. Ticket-created events invoke the Inngest worker, which writes only `aiSuggested*` fields and processing metadata. A bounded ten-minute recovery sweep picks up `PENDING` or retryable `FAILED` work. The worker uses a conditional database update to claim a ticket once and caps attempts at five. It never updates administrator-owned category or priority fields, so retries cannot overwrite a manual decision. Draft generation is an authenticated admin API action and cannot create a public message.
 
 ## Ticket operations
 
@@ -38,4 +38,4 @@ Ticket states are `OPEN`, `IN_PROGRESS`, `RESOLVED`, and `CLOSED`. `OPEN` may mo
 
 Author ticket reads and writes include `authorId` at the database boundary. Admin routes require the verified Better Auth `ADMIN` role. Administrator changes require the current integer `version`; compare-and-update prevents silent concurrent overwrites. State changes and their audit events, assignments and their audit events, and messages/notes and their audit events are committed in one transaction.
 
-SSE endpoints set standard event-stream headers, issue monotonic per-connection event IDs, send heartbeats, observe disconnects, and clean up timers/listeners. `Last-Event-ID` is an extension seam; durable replay and multi-instance fan-out require a shared event transport once streams must cross API processes.
+SSE endpoints require a verified session, set standard event-stream headers, issue UUID event IDs, send heartbeats, observe disconnects, and clean up timers/listeners. Streams are capped globally and per user and end after 15 minutes. Delivery is best-effort: there is no replay from `Last-Event-ID` and no multi-instance fan-out without a shared event transport.

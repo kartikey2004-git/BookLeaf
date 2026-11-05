@@ -17,6 +17,7 @@
     "typecheck": "turbo typecheck",
     "lint": "turbo lint",
     "test": "turbo test",
+    "test:integration": "pnpm --filter @repo/api exec tsx --test ../../infra/test/backend-integration.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:generate": "pnpm --filter @repo/database generate",

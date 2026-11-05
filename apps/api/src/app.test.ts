@@ -17,7 +17,9 @@ describe("API foundation", () => {
   it("serves liveness without infrastructure dependencies", async () => {
     const response = await request(app).get("/api/v1/health/live");
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ status: "ok" });
+    expect(response.body.status).toBe("ok");
+    expect(response.body.timestamp).toBeTruthy();
+    expect(response.body.requestId).toBeTruthy();
   });
   it("returns a structured error for missing routes", async () => {
     const response = await request(app).get("/api/v1/missing");

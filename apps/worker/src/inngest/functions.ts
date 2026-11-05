@@ -9,25 +9,46 @@ import {
   prioritySchema,
 } from "@repo/ai";
 import { getWorkerEnvironment } from "../config/env.js";
+import { workerLog } from "../lib/logger.js";
+import { z } from "zod";
 
 const environment = getWorkerEnvironment();
+const ticketCreatedEventSchema = z.object({
+  ticketId: z.string().min(1).max(255),
+});
+const MAX_AI_ATTEMPTS = 5;
 
-async function processTicket(ticketId: string) {
-  const ticket = await prisma.ticket.findUnique({
-    where: { id: ticketId },
-    select: { id: true, subject: true, description: true, aiStatus: true },
-  });
-  if (!ticket || ticket.aiStatus === "COMPLETED") return { skipped: true };
-  if (!environment.GEMINI_API_KEY)
-    throw new Error("GEMINI_API_KEY is required to process AI tickets");
-  await prisma.ticket.update({
-    where: { id: ticketId },
+export async function claimTicketForAi(ticketId: string): Promise<boolean> {
+  const claim = await prisma.ticket.updateMany({
+    where: {
+      id: ticketId,
+      aiStatus: { in: ["PENDING", "FAILED"] },
+      aiAttempts: { lt: MAX_AI_ATTEMPTS },
+    },
     data: {
       aiStatus: "PROCESSING",
       aiAttempts: { increment: 1 },
       aiError: null,
     },
   });
+  return claim.count === 1;
+}
+
+async function processTicket(ticketId: string) {
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: { id: true, subject: true, description: true, aiStatus: true },
+  });
+  if (!ticket || ticket.aiStatus === "COMPLETED") {
+    workerLog("info", "ticket_ai_skipped", { ticketId, reason: "complete_or_missing" });
+    return { skipped: true };
+  }
+  if (!environment.GEMINI_API_KEY)
+    throw new Error("GEMINI_API_KEY is required to process AI tickets");
+  if (!(await claimTicketForAi(ticketId))) {
+    workerLog("info", "ticket_ai_skipped", { ticketId, reason: "not_claimed" });
+    return { skipped: true };
+  }
   const text = `Subject: ${ticket.subject}\nDescription: ${ticket.description}`;
   try {
     const config = {
@@ -57,6 +78,7 @@ async function processTicket(ticketId: string) {
         aiError: null,
       },
     });
+    workerLog("info", "ticket_ai_completed", { ticketId });
     return { processed: true };
   } catch (error) {
     await prisma.ticket.update({
@@ -69,19 +91,18 @@ async function processTicket(ticketId: string) {
             : "AI processing failed",
       },
     });
+    workerLog("error", "ticket_ai_failed", { ticketId });
     throw error;
   }
 }
 
 export const processTicketCreated = inngest.createFunction(
-  { id: "process-ticket-ai", retries: 2 },
+  { id: "process-ticket-ai", retries: 2, concurrency: 5 },
   { event: "bookleaf/ticket.created" },
   async ({ event, logger }) => {
-    logger.info(
-      { ticketId: event.data.ticketId },
-      "processing ticket AI recommendations",
-    );
-    return processTicket(event.data.ticketId);
+    const { ticketId } = ticketCreatedEventSchema.parse(event.data);
+    logger.info({ ticketId }, "processing ticket AI recommendations");
+    return processTicket(ticketId);
   },
 );
 
@@ -90,7 +111,10 @@ export const recoverPendingTicketAi = inngest.createFunction(
   { cron: "*/10 * * * *" },
   async ({ logger }) => {
     const pending = await prisma.ticket.findMany({
-      where: { aiStatus: "PENDING" },
+      where: {
+        aiStatus: { in: ["PENDING", "FAILED"] },
+        aiAttempts: { lt: MAX_AI_ATTEMPTS },
+      },
       select: { id: true },
       orderBy: { createdAt: "asc" },
       take: 25,

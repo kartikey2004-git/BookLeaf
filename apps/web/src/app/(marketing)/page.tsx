@@ -1,15 +1,12 @@
 import type { Metadata } from "next";
 import { siteMetadata } from "./_content/landing-content";
-import {
-  ClosingCtaSection,
-  FaqSection,
-  HeroSection,
-  PlatformSection,
-  PrinciplesSection,
-  ProductTabsSection,
-  SiteFooter,
-  SiteHeader,
-} from "./_components";
+import { FaqSection } from "./_components/faq";
+import { SiteFooter } from "./_components/footer";
+import { SiteHeader } from "./_components/header";
+import { PrinciplesSection } from "./_components/principles";
+import { ProductTabsSection } from "./_components/product-tabs";
+import { ClosingCtaSection } from "./_components/sections-bottom";
+import { HeroSection, PlatformSection } from "./_components/sections-top";
 
 export const metadata: Metadata = {
   title: siteMetadata.pageTitle,

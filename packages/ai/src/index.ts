@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { GoogleGenAI } from "@google/genai";
 import { z } from "@repo/validation";
 
@@ -26,8 +27,14 @@ export const prioritySchema = z.object({
 });
 export const draftSchema = z.object({ draft: z.string().min(1).max(5000) });
 
+const packagedKnowledgeBase = new URL(
+  "../BOOKLEAF_KNOWLEDGE_BASE.md",
+  import.meta.url,
+);
 const source = readFileSync(
-  new URL("../../../BOOKLEAF_KNOWLEDGE_BASE.md", import.meta.url),
+  existsSync(fileURLToPath(packagedKnowledgeBase))
+    ? packagedKnowledgeBase
+    : new URL("../../../BOOKLEAF_KNOWLEDGE_BASE.md", import.meta.url),
   "utf8",
 );
 const headings = {
@@ -115,12 +122,22 @@ function normalise(error: unknown): AiProviderError {
 }
 const pause = (milliseconds: number) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
+const clients = new Map<string, GoogleGenAI>();
+
+function clientFor(apiKey: string): GoogleGenAI {
+  const existing = clients.get(apiKey);
+  if (existing) return existing;
+  const client = new GoogleGenAI({ apiKey });
+  clients.set(apiKey, client);
+  return client;
+}
+
 export async function completeJson<T>(
   config: AiProviderConfig,
   promptText: string,
   schema: z.ZodType<T>,
 ): Promise<T> {
-  const ai = new GoogleGenAI({ apiKey: config.apiKey });
+  const ai = clientFor(config.apiKey);
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const controller = new AbortController();
     const timeout = setTimeout(
@@ -153,7 +170,7 @@ export async function completeJson<T>(
         attempt === 2
       )
         throw normalized;
-      await pause(250 * 2 ** attempt);
+      await pause(250 * 2 ** attempt + Math.floor(Math.random() * 100));
     } finally {
       clearTimeout(timeout);
     }

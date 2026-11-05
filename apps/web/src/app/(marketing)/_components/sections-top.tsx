@@ -149,8 +149,8 @@ export function StackStrip() {
 }
 
 const cardImages = {
-  meadow: { src: "/landing/card-meadow.webp", fallback: "#7F8C62" },
-  valley: { src: "/landing/card-valley.webp", fallback: "#B98455" },
+  meadow: { src: "/images/card-meadow.webp", fallback: "#7F8C62" },
+  valley: { src: "/images/card-valley.webp", fallback: "#B98455" },
 } as const;
 
 function ImageCard({

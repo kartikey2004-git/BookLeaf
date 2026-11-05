@@ -21,6 +21,7 @@ import {
 } from "@repo/ai";
 import type { ApiEnvironment } from "../config/env.js";
 import { createInngestClient, publishTicketCreated } from "../lib/inngest.js";
+import { createFixedWindowRateLimit } from "../middleware/rate-limit.js";
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -66,6 +67,14 @@ export function createTicketRouters(
 ): { author: Router; admin: Router } {
   const author = Router();
   author.use("/author", createRequireAuthor(getSession, authorService));
+  author.use(
+    "/author",
+    createFixedWindowRateLimit({
+      max: 60,
+      windowMs: 60_000,
+      key: (request) => `author:${request.authorIdentity!.userId}`,
+    }),
+  );
   author.post("/author/tickets", async (request, response, next) => {
     try {
       const ticket = await ticketService.create(
@@ -134,6 +143,14 @@ export function createTicketRouters(
 
   const admin = Router();
   admin.use("/admin", createRequireAdmin(getSession));
+  admin.use(
+    "/admin",
+    createFixedWindowRateLimit({
+      max: 120,
+      windowMs: 60_000,
+      key: (request) => `admin:${request.adminIdentity!.userId}`,
+    }),
+  );
   admin.get("/admin/tickets", async (request, response, next) => {
     try {
       const input = adminListSchema.parse(request.query);
@@ -246,6 +263,11 @@ export function createTicketRouters(
   );
   admin.post(
     "/admin/tickets/:ticketId/ai-draft",
+    createFixedWindowRateLimit({
+      max: 5,
+      windowMs: 60_000,
+      key: (request) => `ai-draft:${request.adminIdentity!.userId}`,
+    }),
     async (request, response, next) => {
       try {
         const { ticketId } = ticketIdSchema.parse(request.params);
