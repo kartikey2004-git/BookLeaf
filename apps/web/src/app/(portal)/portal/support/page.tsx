@@ -76,7 +76,8 @@ export default function SupportPage() {
   }
   async function create(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const form = new FormData(e.currentTarget);
+    const formElement = e.currentTarget;
+    const form = new FormData(formElement);
     const subject = String(form.get("subject") ?? "").trim(),
       description = String(form.get("description") ?? "").trim();
     if (subject.length < 3 || !description) {
@@ -95,7 +96,7 @@ export default function SupportPage() {
           bookId: String(form.get("bookId") || "") || undefined,
         }),
       });
-      e.currentTarget.reset();
+      formElement.reset();
       setNotice("Ticket created.");
       await load();
     } catch (e) {
@@ -107,7 +108,8 @@ export default function SupportPage() {
   async function reply(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!selected) return;
-    const form = new FormData(e.currentTarget);
+    const formElement = e.currentTarget;
+    const form = new FormData(formElement);
     const content = String(form.get("content") ?? "").trim();
     if (!content) return;
     setBusy(true);
@@ -121,7 +123,7 @@ export default function SupportPage() {
         `/api/v1/author/tickets/${selected.id}`,
       );
       setSelected(detail.ticket);
-      e.currentTarget.reset();
+      formElement.reset();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not send reply.");
     } finally {
