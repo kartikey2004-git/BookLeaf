@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { GoogleGenAI } from "@google/genai";
 import { z } from "@repo/validation";
 
@@ -27,16 +27,20 @@ export const prioritySchema = z.object({
 });
 export const draftSchema = z.object({ draft: z.string().min(1).max(5000) });
 
-const packagedKnowledgeBase = new URL(
-  "../BOOKLEAF_KNOWLEDGE_BASE.md",
-  import.meta.url,
-);
-const source = readFileSync(
-  existsSync(fileURLToPath(packagedKnowledgeBase))
-    ? packagedKnowledgeBase
-    : new URL("../../../BOOKLEAF_KNOWLEDGE_BASE.md", import.meta.url),
-  "utf8",
-);
+const knowledgeBasePath = [
+  resolve(process.cwd(), "packages/ai/dist/BOOKLEAF_KNOWLEDGE_BASE.md"),
+  resolve(process.cwd(), "../../packages/ai/dist/BOOKLEAF_KNOWLEDGE_BASE.md"),
+  resolve(process.cwd(), "BOOKLEAF_KNOWLEDGE_BASE.md"),
+  resolve(process.cwd(), "../../BOOKLEAF_KNOWLEDGE_BASE.md"),
+].find(existsSync);
+
+if (!knowledgeBasePath) {
+  throw new Error(
+    "BookLeaf knowledge base is missing from the runtime artifact.",
+  );
+}
+
+const source = readFileSync(knowledgeBasePath, "utf8");
 const headings = {
   royalty: "## 2. Royalty Policy",
   isbn: "## 3. ISBN Policy",

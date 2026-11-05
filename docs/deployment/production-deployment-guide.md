@@ -169,6 +169,10 @@ vercel logs <deployment-url>
 
 Set apps/web as Root Directory. Next config transpiles @repo/auth, @repo/contracts, and @repo/ui; preserve root lockfile. Configure only public NEXT_PUBLIC_API_URL in Vercel. See [Vercel CLI](https://vercel.com/docs/cli).
 
+### Optional serverless Inngest endpoint
+
+The Next.js app can serve the shared `@repo/jobs` functions at `/api/inngest` using Vercel Functions, avoiding a separate always-on worker service. Configure the Inngest Vercel integration (or equivalent encrypted environment variables) for `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY`, and set the test or production `DATABASE_URL` and `GEMINI_API_KEY` as needed. The endpoint is configured for a 60-second maximum duration; each ticket job is an Inngest step so AI work runs as a separate invocation. Verify Vercel plan limits and Inngest integration/protection settings, then register only this endpoint for the selected Inngest environment. Do not run both the standalone worker and Vercel endpoint against the same environment.
+
 ## J. Better Auth, networking, and SSE
 
 The web application has a same-origin route proxy for `/api/auth/*`, `/api/v1/*`, and SSE. Set server-only `API_PROXY_URL` to the Cloud Run API origin. Browser requests use relative `/api` paths with credentials; the proxy forwards cookies, `Set-Cookie`, `Last-Event-ID`, request bodies, and cancellation without buffering the upstream response.
