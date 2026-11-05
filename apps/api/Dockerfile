@@ -2,11 +2,12 @@
 FROM node:26-bookworm-slim AS build
 
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
+RUN npm install --global pnpm@10.23.0
 
 COPY . .
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter @repo/database generate \
+RUN DATABASE_URL=postgresql://build:build@localhost:5432/build \
+ pnpm --filter @repo/database generate \
  && pnpm --filter @repo/ai build \
  && pnpm --filter @repo/api build
 
@@ -15,7 +16,9 @@ FROM node:26-bookworm-slim AS runtime
 ENV NODE_ENV=production \
     API_HOST=0.0.0.0
 WORKDIR /app
-RUN groupadd --system bookleaf && useradd --system --gid bookleaf --home-dir /app bookleaf
+RUN npm install --global pnpm@10.23.0 \
+ && groupadd --system bookleaf \
+ && useradd --system --gid bookleaf --home-dir /app bookleaf
 
 # Workspace packages currently export TypeScript source. Keep the workspace
 # runtime intact and use tsx only as the production TypeScript loader.
