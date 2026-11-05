@@ -40,7 +40,10 @@ async function processTicket(ticketId: string) {
     select: { id: true, subject: true, description: true, aiStatus: true },
   });
   if (!ticket || ticket.aiStatus === "COMPLETED") {
-    workerLog("info", "ticket_ai_skipped", { ticketId, reason: "complete_or_missing" });
+    workerLog("info", "ticket_ai_skipped", {
+      ticketId,
+      reason: "complete_or_missing",
+    });
     return { skipped: true };
   }
   if (!environment.GEMINI_API_KEY)

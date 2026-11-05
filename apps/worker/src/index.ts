@@ -18,11 +18,13 @@ app.use(
   }),
 );
 
-const port = Number(process.env.WORKER_PORT ?? 4001);
-const server = app.listen(port, environment.WORKER_HOST, () =>
-  console.info(
-    `Worker Inngest endpoint listening on http://localhost:${port}/api/inngest`,
-  ),
+const server = app.listen(
+  environment.WORKER_PORT,
+  environment.WORKER_HOST,
+  () =>
+    console.info(
+      `Worker Inngest endpoint listening on http://${environment.WORKER_HOST}:${environment.WORKER_PORT}/api/inngest`,
+    ),
 );
 
 function shutdown(signal: NodeJS.Signals): void {
