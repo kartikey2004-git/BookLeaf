@@ -1,5 +1,11 @@
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import type { NextConfig } from "next";
+
+const workspaceEnvPath = resolve(process.cwd(), "../../.env");
+if (existsSync(workspaceEnvPath)) {
+  process.loadEnvFile(workspaceEnvPath);
+}
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: resolve(process.cwd(), "../.."),

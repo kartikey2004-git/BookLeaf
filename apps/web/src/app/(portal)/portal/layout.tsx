@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { PortalGuard } from "../../../components/portal-guard";
 import { PortalShell } from "./portal-shell";
+import { PortalToastProvider } from "./portal-toast";
 import "./portal.css";
 
 export default function PortalLayout({
@@ -9,7 +10,9 @@ export default function PortalLayout({
   return (
     <PortalGuard>
       <div className="portal">
-        <PortalShell>{children}</PortalShell>
+        <PortalToastProvider>
+          <PortalShell>{children}</PortalShell>
+        </PortalToastProvider>
       </div>
     </PortalGuard>
   );

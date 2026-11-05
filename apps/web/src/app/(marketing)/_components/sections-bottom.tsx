@@ -120,7 +120,7 @@ export function ReasonsSection() {
               muted="More reasons to choose"
               strong={`${meta.name} ${messaging.positioning[3]}`}
             />
-            <LinkButton href="#portal-access" arrow className="h-11.25">
+            <LinkButton href={waitlist.cta.href} arrow className="h-11.25">
               Access Author Portal
             </LinkButton>
           </div>
@@ -303,7 +303,7 @@ export function ClosingCtaSection() {
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <LinkButton
-                href="#portal-access"
+                href={waitlist.cta.href}
                 tone="white"
                 size="lg"
                 arrow
@@ -324,6 +324,7 @@ export function ClosingCtaSection() {
           </div>
 
           <div
+            id="roadmap"
             aria-label="Coming next on the roadmap"
             className="lp-ticker-mask relative h-100 overflow-hidden bg-white/10 px-6 backdrop-blur-md md:h-120"
           >
