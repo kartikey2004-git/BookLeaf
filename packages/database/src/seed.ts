@@ -122,12 +122,14 @@ function makePrismaSeedStore(
 
 export function createPrismaSeedStore(client: PrismaClient): SeedStore {
   return makePrismaSeedStore(client, (operation) =>
-    client.$transaction((transaction) =>
-      operation(
-        makePrismaSeedStore(transaction, async () => {
-          throw new Error("Nested seed transactions are not supported");
-        }),
-      ),
+    client.$transaction(
+      (transaction) =>
+        operation(
+          makePrismaSeedStore(transaction, async () => {
+            throw new Error("Nested seed transactions are not supported");
+          }),
+        ),
+      { maxWait: 15_000, timeout: 180_000 },
     ),
   );
 }
