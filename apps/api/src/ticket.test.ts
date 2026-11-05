@@ -225,4 +225,22 @@ describe("ticket HTTP APIs", () => {
     expect(admin.status).toBe(503);
     expect(admin.body.error.code).toBe("AI_UNAVAILABLE");
   });
+
+  it("protects the streaming AI draft endpoint and validates configuration before streaming", async () => {
+    const anonymous = await request(app).post(
+      "/api/v1/admin/tickets/ticket-1/ai-draft/stream",
+    );
+    const author = await request(app)
+      .post("/api/v1/admin/tickets/ticket-1/ai-draft/stream")
+      .set("Cookie", "session=author");
+    const admin = await request(app)
+      .post("/api/v1/admin/tickets/ticket-1/ai-draft/stream")
+      .set("Cookie", "session=admin");
+
+    expect(anonymous.status).toBe(401);
+    expect(author.status).toBe(403);
+    expect(admin.status).toBe(503);
+    expect(admin.headers["content-type"]).toContain("application/json");
+    expect(admin.body.error.code).toBe("AI_UNAVAILABLE");
+  });
 });

@@ -90,12 +90,23 @@ export const draftPrompt = (ticket: string) =>
     "Return only JSON with draft. Draft a professional, empathetic support reply. State policy only when relevant and never claim an account-specific action or date was completed.",
     ticket,
   );
+export const draftTextPrompt = (ticket: string) =>
+  prompt(
+    "Write only the professional, empathetic support reply, without JSON or headings. State policy only when relevant and never claim an account-specific action or date was completed.",
+    ticket,
+  );
 
 export class AiProviderError extends Error {
   constructor(
     public readonly kind:
-      "AUTH" | "RATE_LIMIT" | "TIMEOUT" | "TRANSIENT" | "INVALID_OUTPUT",
+      | "AUTH"
+      | "RATE_LIMIT"
+      | "TIMEOUT"
+      | "INVALID_REQUEST"
+      | "TRANSIENT"
+      | "INVALID_OUTPUT",
     message: string,
+    public readonly providerStatus?: number,
   ) {
     super(message);
   }
@@ -107,22 +118,51 @@ export type AiProviderConfig = {
 };
 function normalise(error: unknown): AiProviderError {
   if (error instanceof AiProviderError) return error;
+  const providerError =
+    typeof error === "object" && error !== null
+      ? (error as {
+          status?: unknown;
+          statusCode?: unknown;
+          code?: unknown;
+        })
+      : undefined;
+  const statusValue =
+    providerError?.status ?? providerError?.statusCode ?? providerError?.code;
   const status =
-    typeof error === "object" && error
-      ? Number(
-          (error as { status?: number; code?: number }).status ??
-            (error as { code?: number }).code,
-        )
-      : 0;
+    typeof statusValue === "number"
+      ? statusValue
+      : typeof statusValue === "string" && /^\d{3}$/.test(statusValue)
+        ? Number(statusValue)
+        : undefined;
   const message =
     error instanceof Error ? error.message : "Gemini request failed";
   if (status === 401 || status === 403)
-    return new AiProviderError("AUTH", "Gemini authentication failed");
+    return new AiProviderError(
+      "AUTH",
+      "Gemini authentication failed",
+      status,
+    );
   if (status === 429)
-    return new AiProviderError("RATE_LIMIT", "Gemini rate limit reached");
+    return new AiProviderError(
+      "RATE_LIMIT",
+      "Gemini rate limit reached",
+      status,
+    );
+  if (status === 400 || status === 404 || status === 422)
+    return new AiProviderError(
+      "INVALID_REQUEST",
+      `Gemini rejected the request (provider status ${status})`,
+      status,
+    );
   if (/abort|timeout/i.test(message))
     return new AiProviderError("TIMEOUT", "Gemini request timed out");
-  return new AiProviderError("TRANSIENT", "Gemini is temporarily unavailable");
+  return new AiProviderError(
+    "TRANSIENT",
+    status
+      ? `Gemini is temporarily unavailable (provider status ${status})`
+      : "Gemini is temporarily unavailable",
+    status,
+  );
 }
 const pause = (milliseconds: number) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -154,7 +194,6 @@ export async function completeJson<T>(
         contents: promptText,
         config: {
           responseMimeType: "application/json",
-          temperature: 0,
           maxOutputTokens: 700,
           abortSignal: controller.signal,
         },
@@ -171,6 +210,7 @@ export async function completeJson<T>(
       const normalized = normalise(error);
       if (
         (normalized.kind !== "TRANSIENT" && normalized.kind !== "RATE_LIMIT") ||
+        normalized.providerStatus !== undefined ||
         attempt === 2
       )
         throw normalized;
@@ -180,4 +220,77 @@ export async function completeJson<T>(
     }
   }
   throw new AiProviderError("TRANSIENT", "Gemini is temporarily unavailable");
+}
+
+export async function streamDraft(
+  config: AiProviderConfig,
+  promptText: string,
+  onChunk: (text: string) => void,
+  signal?: AbortSignal,
+): Promise<string> {
+  const ai = clientFor(config.apiKey);
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    config.timeoutMs ?? 15_000,
+  );
+  const abort = () => controller.abort(signal?.reason);
+  if (signal?.aborted) abort();
+  else signal?.addEventListener("abort", abort, { once: true });
+
+  let draft = "";
+  let blockedReason: string | undefined;
+  let finishReason: string | undefined;
+  try {
+    const stream = await ai.models.generateContentStream({
+      model: config.model,
+      contents: promptText,
+      config: {
+        maxOutputTokens: 1024,
+        abortSignal: controller.signal,
+      },
+    });
+    for await (const response of stream) {
+      blockedReason ??= response.promptFeedback?.blockReason;
+      const chunkFinishReason = response.candidates?.[0]?.finishReason;
+      if (chunkFinishReason && chunkFinishReason !== "FINISH_REASON_UNSPECIFIED")
+        finishReason = chunkFinishReason;
+      const text = response.text;
+      if (!text) continue;
+      draft += text;
+      if (draft.length > 5000) {
+        throw new AiProviderError(
+          "INVALID_OUTPUT",
+          "Gemini draft exceeded the maximum length",
+        );
+      }
+      onChunk(text);
+    }
+    draft = draft.trim();
+    if (!draft && blockedReason) {
+      throw new AiProviderError(
+        "INVALID_OUTPUT",
+        "Gemini blocked this draft request. Review the ticket content and try again.",
+      );
+    }
+    if (finishReason && finishReason !== "STOP") {
+      throw new AiProviderError(
+        "INVALID_OUTPUT",
+        `Gemini stopped before producing draft text (${finishReason}).`,
+      );
+    }
+    try {
+      return draftSchema.parse({ draft }).draft;
+    } catch {
+      throw new AiProviderError(
+        "INVALID_OUTPUT",
+        "Gemini returned no draft text. Please try again.",
+      );
+    }
+  } catch (error) {
+    throw normalise(error);
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener("abort", abort);
+  }
 }

@@ -202,11 +202,14 @@
 }
 .sign-in-error {
   margin: 0 2rem;
-  border-left: 3px solid #d12a3c;
+  border: 1px solid #e7b6b1;
+  border-left: 4px solid #d12a3c;
+  border-radius: 0.35rem;
   background: #fdf0ef;
-  padding: 0.75rem 0.9rem;
+  padding: 0.85rem 0.95rem;
   color: #8d1c2d;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 @media (max-width: 720px) {
   .sign-in-page,

@@ -3,6 +3,8 @@ import { Skeleton } from "@repo/ui/components/skeleton";
 export default function Loading() {
   return (
     <main
+      id="main-content"
+      tabIndex={-1}
       className="mx-auto max-w-6xl px-6 py-16"
       aria-busy="true"
       aria-live="polite"
