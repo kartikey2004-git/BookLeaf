@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "../../lib/auth-client";
+import { signInErrorMessage } from "../../lib/api-client";
 
 function SignInContent() {
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +31,7 @@ function SignInContent() {
       });
 
       if (result.error) {
-        setError(result.error.message ?? "Could not sign in.");
+        setError(signInErrorMessage(result.error.message));
         return;
       }
 
@@ -45,7 +46,7 @@ function SignInContent() {
   }
 
   return (
-    <main className="sign-in-main">
+    <main id="main-content" tabIndex={-1} className="sign-in-main">
       <section className="sign-in-panel" aria-labelledby="sign-in-title">
         <aside
           className="sign-in-product"
@@ -124,7 +125,13 @@ function SignInContent() {
 
 export default function SignInPage() {
   return (
-    <Suspense fallback={<main className="sign-in-main">Loading sign-in…</main>}>
+    <Suspense
+      fallback={
+        <main id="main-content" tabIndex={-1} className="sign-in-main">
+          Loading sign-in…
+        </main>
+      }
+    >
       <SignInContent />
     </Suspense>
   );

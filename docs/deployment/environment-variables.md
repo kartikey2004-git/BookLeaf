@@ -30,8 +30,8 @@ This inventory is derived from .env.example and runtime references. Configure se
 | INNGEST_APP_ID              | Worker, web jobs                   | No        | Defaults to foundation-worker; use the same value for the selected endpoint.                                   |
 | INNGEST_BASE_URL            | local only                         | No        | Current .env.example points to local Dev Server; do not set for Cloud production unless required.              |
 | GEMINI_API_KEY              | API AI endpoints, worker, web jobs | Yes       | Configure only where AI jobs execute.                                                                          |
-| GEMINI_MODEL                | API, worker                        | No        | Default gemini-2.5-flash.                                                                                      |
-| GEMINI_TIMEOUT_MS           | API, worker                        | No        | Default 15000; supported range 1000-120000.                                                                    |
+| GEMINI_MODEL                | API, worker                        | No        | Default gemini-3.6-flash.                                                                                      |
+| GEMINI_TIMEOUT_MS           | API, worker                        | No        | Default 60000; supported range 1000-120000.                                                                    |
 | GITHUB_CLIENT_ID            | optional Better Auth OAuth         | Sensitive | Secret Manager when enabled.                                                                                   |
 | GITHUB_CLIENT_SECRET        | optional Better Auth OAuth         | Yes       | Secret Manager when enabled.                                                                                   |
 

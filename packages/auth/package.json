@@ -9,6 +9,7 @@
   },
   "scripts": {
     "provision:demo": "tsx src/provision-demo.ts",
+    "provision:admin": "tsx src/provision-admin.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -23,6 +24,7 @@
     "@types/node": "^24.10.1",
     "tsx": "^4.19.4",
     "typescript": "^6.0.0",
-    "vitest": "^3.2.2"
+    "vite": "^7.3.7",
+    "vitest": "^5.1.0"
   }
 }
