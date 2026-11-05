@@ -26,6 +26,8 @@ AI generation is represented by durable job records and handled asynchronously b
 
 This avoids holding API requests open for model calls and gives operations a durable record of work state.
 
+The function definitions live in `packages/jobs` and can be served either by the standalone worker or by a serverless framework adapter. Vercel's Next.js endpoint uses Inngest step execution so each ticket's AI processing is bounded by the function runtime. Only one serving endpoint should be registered for a given Inngest environment.
+
 ## AD-005: Use best-effort SSE without a broker
 
 The API exposes an authenticated `/events` stream for lightweight connection feedback and heartbeats. Connections are capped per user and process and are closed after a bounded lifetime. Event identifiers are UUIDs, not replay cursors.
