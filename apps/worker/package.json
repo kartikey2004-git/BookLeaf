@@ -12,11 +12,10 @@
     "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
-    "@repo/ai": "workspace:*",
     "@repo/database": "workspace:*",
+    "@repo/jobs": "workspace:*",
     "express": "^5.1.0",
-    "inngest": "^3.38.0",
-    "zod": "^4.1.12"
+    "inngest": "^3.38.0"
   },
   "devDependencies": {
     "@repo/config": "workspace:*",
