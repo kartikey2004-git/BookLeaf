@@ -3,6 +3,7 @@ name: Backend quality
 on:
   pull_request:
     paths:
+      - ".github/workflows/**"
       - "apps/api/**"
       - "apps/worker/**"
       - "packages/ai/**"
