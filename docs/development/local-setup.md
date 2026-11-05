@@ -15,7 +15,7 @@ Use Node.js 22 or later, Docker Compose, and pnpm 10. The root package declares 
 
 ## BookLeaf sample data
 
-`prompts/sample.json` is the source dataset. The database seed validates it before writing, then normalizes its nested authors and books. It upserts Authors and Books by their supplied external IDs, Platforms by name, and BookDistribution rows by their composite book/platform key. Re-running the command is idempotent and does not delete records.
+`packages/database/fixtures/bookleaf-sample.json` is the tracked, synthetic source dataset. The database seed validates it before writing, then normalizes its nested authors and books. It upserts Authors and Books by their supplied external IDs, Platforms by name, and BookDistribution rows by their composite book/platform key. Re-running the command is idempotent and does not delete records.
 
 Author business records are separate from Better Auth users. An Author may later be linked to one existing `User` through `Author.userId`; the seed creates neither user accounts nor credentials. Resource routes derive the Author from the verified user session and enforce ownership.
 

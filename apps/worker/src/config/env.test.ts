@@ -14,3 +14,11 @@ test("worker production configuration requires Inngest signing", () => {
     "test-signing-key",
   );
 });
+
+test("worker uses Cloud Run PORT unless WORKER_PORT is explicitly set", () => {
+  assert.equal(getWorkerEnvironment({ PORT: "8080" }).WORKER_PORT, 8080);
+  assert.equal(
+    getWorkerEnvironment({ PORT: "8080", WORKER_PORT: "4001" }).WORKER_PORT,
+    4001,
+  );
+});

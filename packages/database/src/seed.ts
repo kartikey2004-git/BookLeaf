@@ -221,7 +221,7 @@ export async function verifySeedPersistence(
 
 export async function loadSampleDataset(): Promise<unknown> {
   const samplePath = fileURLToPath(
-    new URL("../../../prompts/sample.json", import.meta.url),
+    new URL("../fixtures/bookleaf-sample.json", import.meta.url),
   );
   return JSON.parse(await readFile(samplePath, "utf8")) as unknown;
 }
