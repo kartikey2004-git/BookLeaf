@@ -9,7 +9,8 @@
     },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "passThroughEnv": ["API_PROXY_URL"]
     },
     "typecheck": {
       "dependsOn": ["^typecheck"],

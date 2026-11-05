@@ -1,15 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@repo/ui/components/dialog";
-import { apiFetch } from "../../../lib/api-client";
+  apiFetch,
+  userFacingErrorMessage,
+} from "../../../lib/api-client";
+import { usePortalToast } from "./portal-toast";
 
 type Overview = {
   totalBooks: number;
@@ -19,63 +15,122 @@ type Overview = {
   totalRoyaltyPaid: string;
   totalRoyaltyPending: string;
 };
+
+type Book = { id: string; title: string };
+
 type Ticket = {
   id: string;
   reference: string;
   subject: string;
-  category: string;
-  priority: string;
   status: string;
+  priority: string;
+  category: string;
+  description: string;
   createdAt: string;
+  messages?: {
+    id: string;
+    content: string;
+    sender: { name: string; role: string };
+    createdAt: string;
+  }[];
 };
-type Book = { id: string; title: string };
 
-function ErrorBox({ error }: { error: string | null }) {
-  return error ? (
-    <p className="portal-error" role="alert">
-      {error}
-    </p>
-  ) : null;
-}
-
-function SupportModal({
-  onClose,
-  onCreated,
-}: {
-  onClose: () => void;
-  onCreated: () => Promise<void>;
-}) {
+export default function PortalHome() {
+  const [overview, setOverview] = useState<Overview | null>(null);
   const [books, setBooks] = useState<Book[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingTicket, setLoadingTicket] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [replying, setReplying] = useState(false);
+  const selectionRequest = useRef(0);
+  const { notify } = usePortalToast();
 
   useEffect(() => {
-    apiFetch<{ books: Book[] }>("/api/v1/author/books?pageSize=50")
-      .then((response) => setBooks(response.books))
+    const controller = new AbortController();
+    const options = { signal: controller.signal };
+
+    Promise.all([
+      apiFetch<{ overview: Overview }>("/api/v1/author/overview", options),
+      apiFetch<{ books: Book[] }>(
+        "/api/v1/author/books?pageSize=50",
+        options,
+      ),
+      apiFetch<{ tickets: Ticket[] }>(
+        "/api/v1/author/tickets?pageSize=50",
+        options,
+      ),
+    ])
+      .then(([overviewResponse, booksResponse, ticketsResponse]) => {
+        setOverview(overviewResponse.overview);
+        setBooks(booksResponse.books);
+        setTickets(ticketsResponse.tickets);
+      })
       .catch((cause: unknown) => {
-        setBooks([]);
-        setError(
-          cause instanceof Error
-            ? cause.message
-            : "Could not load books for this ticket.",
-        );
+        if (!controller.signal.aborted) {
+          notify(
+            "error",
+            userFacingErrorMessage(cause, "Could not load your portal."),
+          );
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
       });
-  }, []);
+
+    return () => {
+      controller.abort();
+      selectionRequest.current += 1;
+    };
+  }, [notify]);
+
+  async function refreshTickets() {
+    const response = await apiFetch<{ tickets: Ticket[] }>(
+      "/api/v1/author/tickets?pageSize=50",
+    );
+    setTickets(response.tickets);
+  }
+
+  async function selectTicket(ticketId: string) {
+    const request = ++selectionRequest.current;
+    setSelectedTicketId(ticketId);
+    setSelectedTicket(null);
+    setLoadingTicket(true);
+    try {
+      const response = await apiFetch<{ ticket: Ticket }>(
+        `/api/v1/author/tickets/${ticketId}`,
+      );
+      if (request === selectionRequest.current) {
+        setSelectedTicket(response.ticket);
+      }
+    } catch (cause) {
+      if (request === selectionRequest.current) {
+        notify(
+          "error",
+          userFacingErrorMessage(cause, "Could not load this ticket."),
+        );
+        setSelectedTicketId(null);
+      }
+    } finally {
+      if (request === selectionRequest.current) setLoadingTicket(false);
+    }
+  }
 
   async function createTicket(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const subject = String(form.get("subject") ?? "").trim();
     const description = String(form.get("description") ?? "").trim();
 
     if (subject.length < 3 || !description) {
-      setError("Enter a subject and description.");
+      notify("error", "Enter a subject and description.");
       return;
     }
 
-    setBusy(true);
-    setError(null);
-
+    setCreating(true);
     try {
       await apiFetch("/api/v1/author/tickets", {
         method: "POST",
@@ -86,163 +141,156 @@ function SupportModal({
           bookId: String(form.get("bookId") || "") || undefined,
         }),
       });
-      await onCreated();
-      onClose();
+      formElement.reset();
+      notify("success", "Ticket created.");
+
+      try {
+        await refreshTickets();
+      } catch {
+        notify("error", "Ticket created, but the ticket list could not be refreshed.");
+      }
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : "Could not create ticket.",
+      notify(
+        "error",
+        userFacingErrorMessage(cause, "Could not create your ticket."),
       );
     } finally {
-      setBusy(false);
+      setCreating(false);
+    }
+  }
+
+  async function replyToTicket(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedTicket) return;
+
+    const formElement = event.currentTarget;
+    const content = String(new FormData(formElement).get("content") ?? "").trim();
+    if (!content) return;
+
+    setReplying(true);
+    try {
+      await apiFetch(
+        `/api/v1/author/tickets/${selectedTicket.id}/messages`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content }),
+        },
+      );
+      formElement.reset();
+      notify("success", "Reply sent.");
+
+      try {
+        const response = await apiFetch<{ ticket: Ticket }>(
+          `/api/v1/author/tickets/${selectedTicket.id}`,
+        );
+        setSelectedTicket(response.ticket);
+        await refreshTickets();
+      } catch {
+        notify("error", "Reply sent, but the ticket could not be refreshed.");
+      }
+    } catch (cause) {
+      notify(
+        "error",
+        userFacingErrorMessage(cause, "Could not send your reply."),
+      );
+    } finally {
+      setReplying(false);
     }
   }
 
   return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open && !busy) onClose();
-      }}
-    >
-      <DialogContent
-        className="portal-modal max-h-[calc(100dvh-2rem)] max-w-152"
-        overlayClassName="portal-modal-backdrop"
-        viewportClassName="portal-modal-viewport"
-        showCloseButton={false}
-      >
-        <DialogHeader className="portal-modal-header">
-          <div>
-            <p className="portal-muted">Support desk</p>
-            <DialogTitle>How can we help?</DialogTitle>
-          </div>
-          <DialogClose
-            className="portal-modal-close"
-            disabled={busy}
-            aria-label="Close support form"
-          >
-            ×
-          </DialogClose>
-        </DialogHeader>
-        <DialogDescription>
-          Send your request to the BookLeaf team. We will reply in portal.
-        </DialogDescription>
-        <ErrorBox error={error} />
-        <form
-          className="portal-form"
-          onSubmit={createTicket}
-          autoComplete="off"
-        >
-          <label>
-            Book (optional)
-            <select name="bookId">
-              <option value="">General account question</option>
-              {books.map((book) => (
-                <option key={book.id} value={book.id}>
-                  {book.title}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Subject
-            <input
-              name="subject"
-              autoComplete="off"
-              minLength={3}
-              maxLength={200}
-              required
-            />
-          </label>
-          <label>
-            Description
-            <textarea
-              name="description"
-              autoComplete="off"
-              maxLength={10000}
-              required
-            />
-          </label>
-          <button className="portal-button" disabled={busy}>
-            {busy ? "Sending..." : "Send request"}
-          </button>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-export default function PortalHome() {
-  const [overview, setOverview] = useState<Overview | null>(null);
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [supportOpen, setSupportOpen] = useState(false);
-
-  async function refreshTickets() {
-    const response = await apiFetch<{ tickets: Ticket[] }>(
-      "/api/v1/author/tickets?pageSize=5",
-    );
-    setTickets(response.tickets);
-  }
-
-  useEffect(() => {
-    Promise.all([
-      apiFetch<{ overview: Overview }>("/api/v1/author/overview"),
-      apiFetch<{ tickets: Ticket[] }>("/api/v1/author/tickets?pageSize=5"),
-    ])
-      .then(([a, b]) => {
-        setOverview(a.overview);
-        setTickets(b.tickets);
-      })
-      .catch((e: unknown) =>
-        setError(
-          e instanceof Error ? e.message : "Could not load your dashboard.",
-        ),
-      );
-  }, []);
-  return (
-    <main id="main-content" className="portal-main">
+    <main id="main-content" tabIndex={-1} className="portal-main">
       <header>
         <p className="portal-muted">Author workspace</p>
         <h1>Your publishing overview</h1>
       </header>
-      <ErrorBox error={error} />
-      {!overview && !error ? <p>Loading dashboard…</p> : null}
+      {loading ? <p>Loading your portal…</p> : null}
       {overview ? (
-        <>
-          <section className="portal-grid">
-            <article className="portal-card">
-              <span className="portal-stat">{overview.totalBooks}</span>
-              <p>Books</p>
-            </article>
-            <article className="portal-card">
-              <span className="portal-stat">{overview.publishedBooks}</span>
-              <p>Published</p>
-            </article>
-            <article className="portal-card">
-              <span className="portal-stat">
-                ₹{overview.totalRoyaltyEarned}
-              </span>
-              <p>Royalty earned</p>
-            </article>
-            <article className="portal-card">
-              <span className="portal-stat">
-                ₹{overview.totalRoyaltyPending}
-              </span>
-              <p>Royalty pending</p>
-            </article>
-          </section>
-          <section className="portal-section">
-            <header>
-              <h2>Recent support tickets</h2>
-              <button
-                className="portal-button"
-                type="button"
-                onClick={() => setSupportOpen(true)}
-              >
-                Get support
+        <section className="portal-grid" aria-label="Publishing overview">
+          <article className="portal-card">
+            <span className="portal-stat">{overview.totalBooks}</span>
+            <p>Books</p>
+          </article>
+          <article className="portal-card">
+            <span className="portal-stat">{overview.publishedBooks}</span>
+            <p>Published</p>
+          </article>
+          <article className="portal-card">
+            <span className="portal-stat">
+              ₹{overview.totalRoyaltyEarned}
+            </span>
+            <p>Royalty earned</p>
+          </article>
+          <article className="portal-card">
+            <span className="portal-stat">
+              ₹{overview.totalRoyaltyPending}
+            </span>
+            <p>Royalty pending</p>
+          </article>
+        </section>
+      ) : null}
+
+      <section className="portal-section" aria-labelledby="support-title">
+        <header>
+          <div>
+            <p className="portal-muted">Author support</p>
+            <h2 id="support-title">Your support requests</h2>
+          </div>
+        </header>
+
+        <div className="portal-support-grid">
+          <section className="portal-support-panel">
+            <h3>Create a request</h3>
+            <form
+              className="portal-form"
+              onSubmit={createTicket}
+              autoComplete="off"
+            >
+              <label>
+                Book (optional)
+                <select name="bookId" disabled={loading}>
+                  <option value="">General account question</option>
+                  {books.map((book) => (
+                    <option key={book.id} value={book.id}>
+                      {book.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Subject
+                <input
+                  name="subject"
+                  autoComplete="off"
+                  minLength={3}
+                  maxLength={200}
+                  required
+                />
+              </label>
+              <label>
+                Description
+                <textarea
+                  name="description"
+                  autoComplete="off"
+                  maxLength={10000}
+                  required
+                />
+              </label>
+              <button className="portal-button" disabled={creating || loading}>
+                {creating ? "Sending…" : "Send request"}
               </button>
-            </header>
-            {tickets.length ? (
+            </form>
+          </section>
+
+          <section
+            className="portal-support-panel"
+            aria-labelledby="ticket-list-title"
+          >
+            <h3 id="ticket-list-title">Your tickets</h3>
+            {loading ? (
+              <p>Loading tickets…</p>
+            ) : tickets.length ? (
               <table className="portal-table">
                 <thead>
                   <tr>
@@ -252,33 +300,72 @@ export default function PortalHome() {
                   </tr>
                 </thead>
                 <tbody>
-                  {tickets.map((t) => (
-                    <tr key={t.id}>
+                  {tickets.map((ticket) => (
+                    <tr key={ticket.id}>
                       <td>
-                        <span className="portal-ticket-subject">
-                          {t.subject}
-                        </span>
+                        <button
+                          type="button"
+                          aria-pressed={selectedTicketId === ticket.id}
+                          disabled={replying}
+                          onClick={() => void selectTicket(ticket.id)}
+                        >
+                          {ticket.subject}
+                        </button>
+                        <br />
+                        <small>{ticket.reference}</small>
                       </td>
                       <td>
-                        <span className="portal-badge">{t.status}</span>
+                        <span className="portal-badge">{ticket.status}</span>
                       </td>
-                      <td>{t.priority}</td>
+                      <td>{ticket.priority}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             ) : (
-              <p className="portal-card">No support tickets yet.</p>
+              <p className="portal-support-empty">No support requests yet.</p>
             )}
           </section>
-        </>
-      ) : null}
-      {supportOpen ? (
-        <SupportModal
-          onClose={() => setSupportOpen(false)}
-          onCreated={refreshTickets}
-        />
-      ) : null}
+        </div>
+
+        {loadingTicket ? <p role="status">Loading ticket…</p> : null}
+        {selectedTicket ? (
+          <section
+            className="portal-section portal-support-detail"
+            aria-labelledby="selected-ticket-title"
+          >
+            <header>
+              <div>
+                <p className="portal-muted">{selectedTicket.reference}</p>
+                <h3 id="selected-ticket-title">{selectedTicket.subject}</h3>
+              </div>
+              <span className="portal-badge">{selectedTicket.status}</span>
+            </header>
+            <p>{selectedTicket.description}</p>
+            {selectedTicket.messages?.map((message) => (
+              <article className="portal-message" key={message.id}>
+                <strong>{message.sender.name}</strong>
+                <p>{message.content}</p>
+              </article>
+            ))}
+            {["OPEN", "IN_PROGRESS"].includes(selectedTicket.status) ? (
+              <form className="portal-form portal-reply-form" onSubmit={replyToTicket}>
+                <label>
+                  Reply
+                  <textarea name="content" maxLength={10000} required />
+                </label>
+                <button className="portal-button" disabled={replying}>
+                  {replying ? "Sending…" : "Send reply"}
+                </button>
+              </form>
+            ) : (
+              <p className="portal-muted">
+                This ticket is no longer accepting author replies.
+              </p>
+            )}
+          </section>
+        ) : null}
+      </section>
     </main>
   );
 }

@@ -62,7 +62,7 @@ export function SiteHeader() {
   const handleSignOut = async () => {
     setAccountOpen(false);
     await authClient.signOut();
-    window.location.assign("/");
+    window.location.assign("/sign-in");
   };
 
   useEffect(() => {

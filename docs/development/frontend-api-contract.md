@@ -28,6 +28,9 @@ Better Auth is mounted at `/api/auth/*`. Author routes resolve session user to `
 - `POST /admin/tickets/:ticketId/messages`: body `{ content }`; explicit public reply.
 - `POST /admin/tickets/:ticketId/internal-notes`: body `{ content }`; private note.
 - `POST /admin/tickets/:ticketId/ai-draft`: empty body; returns `{ draft, recommendations: { category, priority } }`. It never creates a public message.
+- `POST /admin/tickets/:ticketId/ai-draft/stream`: empty body; authenticated admin-only SSE stream. `chunk` events contain `{ text }`, `done` contains `{ draft, recommendations }`, and `error` contains a generic user-safe `{ message }` without provider diagnostics or error codes. It never creates a public message; disconnecting cancels generation.
+
+The web client maps API status and error codes to friendly messages. It must not display raw API/provider messages, status values, or error codes.
 
 Mutation requests use current integer `version`. A competing write returns `409 TICKET_VERSION_CONFLICT`. Status transitions: `OPEN` to `IN_PROGRESS`, `RESOLVED`, or `CLOSED`; `IN_PROGRESS` to `OPEN`, `RESOLVED`, or `CLOSED`; `RESOLVED` to `IN_PROGRESS` or `CLOSED`; `CLOSED` is terminal.
 
@@ -37,7 +40,7 @@ Ticket creation returns immediately. `ai.status` starts pending. Gemini recommen
 
 ## Environment and limits
 
-Required runtime variables: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `BETTER_AUTH_TRUSTED_ORIGINS`. AI needs `GEMINI_API_KEY`; `GEMINI_MODEL` defaults to `gemini-2.5-flash`; `GEMINI_TIMEOUT_MS` defaults to `15000`. Inngest uses `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY` when connected. API keys never reach frontend code.
+Required runtime variables: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `BETTER_AUTH_TRUSTED_ORIGINS`. AI needs `GEMINI_API_KEY`; `GEMINI_MODEL` defaults to `gemini-3.6-flash`; `GEMINI_TIMEOUT_MS` defaults to `60000` (60 seconds, configurable up to 120000). Inngest uses `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY` when connected. API keys never reach frontend code.
 
 OpenAPI endpoint: `GET /api/v1/openapi.json`. This document is frontend contract.
 

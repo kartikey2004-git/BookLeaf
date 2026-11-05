@@ -7,6 +7,7 @@ import {
   architectureGraph,
   messaging,
   product,
+  waitlist,
 } from "../_content/landing-content";
 import { ArrowLink, PlannedBadge, Rails, SplitHeading } from "./primitives";
 
@@ -288,7 +289,7 @@ export function ProductTabsSection() {
               <p className="mt-4 max-w-115 text-lg leading-7 text-[#6F6E6A]">
                 {activeTab.description}
               </p>
-              <ArrowLink href="#portal-access" className="mt-8">
+              <ArrowLink href={waitlist.cta.href} className="mt-8">
                 {activeTab.planned ? "Learn more" : "Open the portal"}
               </ArrowLink>
             </div>

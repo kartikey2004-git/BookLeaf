@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import { z } from "@repo/validation";
 import { createRequireAdmin } from "../middleware/admin-auth.js";
@@ -18,10 +19,13 @@ import {
   completeJson,
   draftPrompt,
   draftSchema,
+  draftTextPrompt,
+  streamDraft,
 } from "@repo/ai";
 import type { ApiEnvironment } from "../config/env.js";
 import { createInngestClient, publishTicketCreated } from "../lib/inngest.js";
 import { createFixedWindowRateLimit } from "../middleware/rate-limit.js";
+import { writeEvent } from "../lib/sse.js";
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -304,14 +308,147 @@ export function createTicketRouters(
         });
       } catch (error) {
         if (error instanceof AiProviderError) {
+          request.log?.error(
+            {
+              provider: "google-gemini",
+              model: environment?.GEMINI_MODEL,
+              failureKind: error.kind,
+              providerStatus: error.providerStatus,
+              requestId: request.requestId,
+            },
+            "Gemini draft generation failed",
+          );
           const status =
-            error.kind === "AUTH"
+            error.kind === "AUTH" ||
+            error.kind === "INVALID_REQUEST" ||
+            error.kind === "INVALID_OUTPUT"
               ? 502
-              : error.kind === "INVALID_OUTPUT"
-                ? 502
-                : 503;
+              : 503;
           next(new HttpError(status, "AI_UNAVAILABLE", error.message));
         } else next(error);
+      }
+    },
+  );
+  admin.post(
+    "/admin/tickets/:ticketId/ai-draft/stream",
+    createFixedWindowRateLimit({
+      max: 5,
+      windowMs: 60_000,
+      key: (request) => `ai-draft:${request.adminIdentity!.userId}`,
+    }),
+    async (request, response, next) => {
+      let streamStarted = false;
+      let controller: AbortController | undefined;
+      let onClose: (() => void) | undefined;
+      try {
+        const { ticketId } = ticketIdSchema.parse(request.params);
+        const ticket = await ticketService.getAdmin(ticketId);
+        if (!ticket)
+          throw new HttpError(404, "NOT_FOUND", "Ticket was not found");
+        if (!environment?.GEMINI_API_KEY)
+          throw new HttpError(
+            503,
+            "AI_UNAVAILABLE",
+            "AI drafting is not configured",
+          );
+        const conversation = (ticket.messages ?? [])
+          .slice(-8)
+          .map((item) => `${item.sender.role}: ${item.content}`)
+          .join("\n");
+
+        response.status(200).set({
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          Connection: "keep-alive",
+          "X-Accel-Buffering": "no",
+        });
+        response.flushHeaders();
+        streamStarted = true;
+        controller = new AbortController();
+        onClose = () => {
+          if (!response.writableEnded) controller?.abort();
+        };
+        response.once("close", onClose);
+
+        const draft = await streamDraft(
+          {
+            apiKey: environment.GEMINI_API_KEY,
+            model: environment.GEMINI_MODEL,
+            timeoutMs: environment.GEMINI_TIMEOUT_MS,
+          },
+          draftTextPrompt(
+            `Subject: ${ticket.subject}\nDescription: ${ticket.description}\nConversation:\n${conversation}`,
+          ),
+          (text) => {
+            if (!controller?.signal.aborted && !response.destroyed) {
+              writeEvent(response, {
+                id: randomUUID(),
+                event: "chunk",
+                data: { text },
+              });
+            }
+          },
+          controller.signal,
+        );
+        if (!controller.signal.aborted && !response.destroyed) {
+          writeEvent(response, {
+            id: randomUUID(),
+            event: "done",
+            data: {
+              draft,
+              recommendations: {
+                category: ticket.ai.suggestedCategory,
+                priority: ticket.ai.suggestedPriority,
+              },
+            },
+          });
+          response.end();
+        }
+      } catch (error) {
+        if (error instanceof AiProviderError) {
+          request.log?.error(
+            {
+              provider: "google-gemini",
+              model: environment?.GEMINI_MODEL,
+              failureKind: error.kind,
+              providerStatus: error.providerStatus,
+              requestId: request.requestId,
+            },
+            "Gemini draft stream failed",
+          );
+        } else if (streamStarted) {
+          request.log?.error(
+            { requestId: request.requestId, failureKind: "INTERNAL" },
+            "AI draft stream failed",
+          );
+        }
+        if (!streamStarted) {
+          if (error instanceof AiProviderError) {
+            const status =
+              error.kind === "AUTH" ||
+              error.kind === "INVALID_REQUEST" ||
+              error.kind === "INVALID_OUTPUT"
+                ? 502
+                : 503;
+            next(new HttpError(status, "AI_UNAVAILABLE", error.message));
+          } else next(error);
+        } else if (
+          !controller?.signal.aborted &&
+          !response.destroyed &&
+          !response.writableEnded
+        ) {
+          writeEvent(response, {
+            id: randomUUID(),
+            event: "error",
+            data: {
+              message:
+                "Draft generation is temporarily unavailable. Please try again shortly.",
+            },
+          });
+          response.end();
+        }
+      } finally {
+        if (onClose) response.off("close", onClose);
       }
     },
   );

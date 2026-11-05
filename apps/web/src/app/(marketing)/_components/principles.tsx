@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { cn } from "./utils";
-import { deterministicEngine } from "../_content/landing-content";
+import {
+  deterministicEngine,
+  developerExperience,
+  waitlist,
+} from "../_content/landing-content";
 import { LinkButton } from "./primitives";
 
 const SLIDE_MS = 7000;
@@ -28,6 +32,7 @@ export function PrinciplesSection() {
 
   return (
     <section
+      id={developerExperience.id}
       aria-roledescription="carousel"
       aria-label={deterministicEngine.title}
       onMouseEnter={() => setPaused(true)}
@@ -165,7 +170,7 @@ export function PrinciplesSection() {
             ))}
           </div>
           <LinkButton
-            href="#portal-access"
+            href={waitlist.cta.href}
             tone="white"
             arrow
             size="lg"

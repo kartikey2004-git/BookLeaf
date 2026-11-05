@@ -13,6 +13,11 @@ Use Node.js 22 or later, Docker Compose, and pnpm 10. The root package declares 
 5. Import BookLeaf sample data with `pnpm --filter @repo/database seed`.
 6. Start the applications with `pnpm dev`; use package filters to run one process when needed.
 
+The web app's same-origin `/api/*` proxy requires `API_PROXY_URL`; for local
+development, set it to `http://localhost:4000` in the workspace-root `.env`.
+The web app loads that file when its Next.js config starts; restart `pnpm dev`
+after changing the proxy URL.
+
 ## BookLeaf sample data
 
 `packages/database/fixtures/bookleaf-sample.json` is the tracked, synthetic source dataset. The database seed validates it before writing, then normalizes its nested authors and books. It upserts Authors and Books by their supplied external IDs, Platforms by name, and BookDistribution rows by their composite book/platform key. Re-running the command is idempotent and does not delete records.
@@ -29,6 +34,12 @@ Available endpoints are `GET /api/v1/author/me`, `GET /api/v1/author/books?page=
 
 To provision local demo accounts, set a unique development-only `BOOKLEAF_DEMO_PASSWORD` with at least 12 characters, keep `NODE_ENV=development`, then run `pnpm --filter @repo/auth provision:demo`. The script creates accounts through Better Auth, links each seeded author explicitly, is idempotent, and never overwrites a conflicting link. Do not run it in production or commit the password.
 
+To provision a local admin account, use the same development-only password and
+run `pnpm --filter @repo/auth provision:admin -- admin@example.test`. Replace the
+email with the local admin address. This development-only command creates the
+account through Better Auth when needed and sets its role to `ADMIN`; it never
+logs the password.
+
 ## Ticket operations
 
 Run `pnpm --filter @repo/database migrate:deploy` after pulling the ticket migration, then restart the API. Author ticket APIs are `POST`/`GET /api/v1/author/tickets`, `GET /api/v1/author/tickets/:ticketId`, and `POST /api/v1/author/tickets/:ticketId/messages`. Admin ticket APIs are under `/api/v1/admin/tickets` for queue, detail, status, priority, category, assignment, public messages, and private notes.
@@ -37,7 +48,7 @@ Ticket categories and priorities are fixed enums. An author can only link a tick
 
 ## Gemini AI support
 
-Set `GEMINI_API_KEY` only in server/worker environments. `GEMINI_MODEL` defaults to `gemini-2.5-flash`, an inexpensive model suitable for short classifications and drafts, and `GEMINI_TIMEOUT_MS` defaults to 15000. The worker receives `bookleaf/ticket.created`, retrieves only relevant canonical knowledge-base sections, and stores AI recommendations separately from administrator category and priority values. It never sends a public reply. `POST /api/v1/admin/tickets/:ticketId/ai-draft` produces a reviewable draft only. Gemini failures are bounded-retried for transient/rate-limit failures; credentials and ticket content are not logged.
+Set `GEMINI_API_KEY` in the repository-root `.env` for local development; the API and worker development commands load that file at startup. Restart them after changing AI settings. In production, configure the key only in the API/worker secret environment where AI runs. `GEMINI_MODEL` defaults to the stable `gemini-3.6-flash`, and `GEMINI_TIMEOUT_MS` defaults to 60000 (60 seconds; configurable up to 120000). The worker receives `bookleaf/ticket.created`, retrieves only relevant canonical knowledge-base sections, and stores AI recommendations separately from administrator category and priority values. It never sends a public reply. `POST /api/v1/admin/tickets/:ticketId/ai-draft` produces a reviewable draft only. Gemini failures are bounded-retried for transient/rate-limit failures; credentials and ticket content are not logged.
 
 The web app uses port 3000, API port 4000, and worker port 4001 by default. OpenAPI JSON is exposed at `/api/v1/openapi.json`; liveness and readiness are `/api/v1/health/live` and `/api/v1/health/ready`.
 
