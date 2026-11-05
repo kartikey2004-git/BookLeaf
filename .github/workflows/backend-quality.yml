@@ -46,6 +46,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @repo/database generate
+        env:
+          DATABASE_URL: postgresql://integration:integration-password@localhost:5432/bookleaf_integration?schema=public
       - run: pnpm --filter @repo/api typecheck
       - run: pnpm --filter @repo/api lint
       - run: pnpm --filter @repo/api test
@@ -55,6 +58,8 @@ jobs:
       - run: pnpm --filter @repo/worker test
       - run: pnpm --filter @repo/worker build
       - run: pnpm --filter @repo/database validate
+        env:
+          DATABASE_URL: postgresql://integration:integration-password@localhost:5432/bookleaf_integration?schema=public
       - run: pnpm --filter @repo/database migrate:deploy
         env:
           DATABASE_URL: postgresql://integration:integration-password@127.0.0.1:5432/bookleaf_integration?schema=public
