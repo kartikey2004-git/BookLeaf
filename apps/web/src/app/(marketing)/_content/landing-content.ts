@@ -50,8 +50,8 @@ export const navigationContent = {
     { label: "How it works", href: "#how-it-works" },
     { label: "FAQ", href: "#faq" },
   ] satisfies readonly MarketingLink[],
-  authorPortalCta: { label: "Access Author Portal", href: "#portal-access" },
-  supportPortalCta: { label: "Support Team Login", href: "#portal-access" },
+  authorPortalCta: { label: "Access Author Portal", href: "/portal" },
+  supportPortalCta: { label: "Support Team Login", href: "/portal/admin" },
   account: {
     getStarted: "Get started",
     menuLabel: "Open account menu",

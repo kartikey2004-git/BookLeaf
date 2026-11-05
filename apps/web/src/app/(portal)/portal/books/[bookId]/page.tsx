@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { apiFetch } from "../../../../../lib/api-client";
+import {
+  apiFetch,
+  userFacingErrorMessage,
+} from "../../../../../lib/api-client";
+import { usePortalToast } from "../../portal-toast";
 
 type Book = {
   title: string;
@@ -25,26 +29,56 @@ export default function BookPage({
   params: Promise<{ bookId: string }>;
 }) {
   const [book, setBook] = useState<Book | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const { notify } = usePortalToast();
 
   useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setLoadFailed(false);
+    setBook(null);
     params
       .then(({ bookId }) =>
-        apiFetch<{ book: Book }>(`/api/v1/author/books/${bookId}`),
+        apiFetch<{ book: Book }>(`/api/v1/author/books/${bookId}`, {
+          signal: controller.signal,
+        }),
       )
-      .then((response) => setBook(response.book))
-      .catch((reason: unknown) =>
-        setError(
-          reason instanceof Error ? reason.message : "Could not load book.",
-        ),
-      );
-  }, [params]);
+      .then((response) => {
+        if (!controller.signal.aborted) setBook(response.book);
+      })
+      .catch((reason: unknown) => {
+        if (!controller.signal.aborted) {
+          setLoadFailed(true);
+          notify(
+            "error",
+            userFacingErrorMessage(reason, "Could not load this book."),
+          );
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [attempt, notify, params]);
 
   return (
-    <main id="main-content" className="portal-main">
-      <Link href="/portal/books">← My books</Link>
-      {error ? <p className="portal-error">{error}</p> : null}
-      {!book && !error ? <p>Loading book…</p> : null}
+    <main id="main-content" tabIndex={-1} className="portal-main">
+      <Link href="/portal/books">My books</Link>
+      {loading ? <p role="status">Loading book…</p> : null}
+      {loadFailed ? (
+        <section className="portal-card portal-empty-state">
+          <h2>Book details couldn’t be loaded</h2>
+          <p>Try again to refresh this book’s information.</p>
+          <button
+            className="portal-button"
+            onClick={() => setAttempt((current) => current + 1)}
+          >
+            Try again
+          </button>
+        </section>
+      ) : null}
       {book ? (
         <>
           <h1>{book.title}</h1>

@@ -9,6 +9,7 @@
   },
   "scripts": {
     "provision:demo": "tsx src/provision-demo.ts",
+    "provision:admin": "tsx src/provision-admin.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

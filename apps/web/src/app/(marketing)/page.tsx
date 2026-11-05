@@ -19,7 +19,7 @@ export default function MarketingPage() {
     <div className="lp">
       <SiteHeader />
 
-      <main>
+      <main id="main-content" tabIndex={-1}>
         <HeroSection />
         <PlatformSection />
         <ProductTabsSection />
