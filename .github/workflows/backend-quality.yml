@@ -52,6 +52,8 @@ jobs:
       - run: pnpm --filter @repo/api typecheck
       - run: pnpm --filter @repo/api lint
       - run: pnpm --filter @repo/api test
+        env:
+          DATABASE_URL: postgresql://integration:integration-password@localhost:5432/bookleaf_integration?schema=public
       - run: pnpm --filter @repo/api build
       - run: pnpm --filter @repo/worker typecheck
       - run: pnpm --filter @repo/worker lint
