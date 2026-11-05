@@ -13,7 +13,7 @@ Better Auth is mounted at `/api/auth/*`. Author routes resolve session user to `
 - `GET /author/books/:bookId`: `{ book }`; unavailable books return `404`.
 - `GET /author/overview`: `{ overview }`.
 - `POST /author/tickets`: body `{ bookId?, subject, description }`; returns `201 { ticket }`. `bookId` must belong to session author.
-- `GET /author/tickets?status&page&pageSize`: paginated `{ tickets, pagination }`.
+- `GET /author/tickets?status&page&pageSize`: paginated `{ tickets, pagination }`; list items do not include messages.
 - `GET /author/tickets/:ticketId`: `{ ticket }`, including public messages only.
 - `POST /author/tickets/:ticketId/messages`: body `{ content }`; returns `201 { message }`. Only `OPEN` and `IN_PROGRESS` accept author messages.
 
@@ -40,3 +40,7 @@ Ticket creation returns immediately. `ai.status` starts pending. Gemini recommen
 Required runtime variables: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `BETTER_AUTH_TRUSTED_ORIGINS`. AI needs `GEMINI_API_KEY`; `GEMINI_MODEL` defaults to `gemini-2.5-flash`; `GEMINI_TIMEOUT_MS` defaults to `15000`. Inngest uses `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY` when connected. API keys never reach frontend code.
 
 OpenAPI endpoint: `GET /api/v1/openapi.json`. This document is frontend contract.
+
+## Server-sent events
+
+`GET /events` requires a valid Better Auth session. The stream sends a `connected` event with a request ID, then heartbeat comments. It is limited to three active streams per user and 100 per API process, and closes after 15 minutes. Events are best-effort: clients must not expect replay from `Last-Event-ID` or cross-instance delivery.

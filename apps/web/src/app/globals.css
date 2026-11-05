@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--foreground);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-primary: var(--accent);
+  --color-primary-foreground: #ffffff;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #2f2e2e;
@@ -30,6 +43,21 @@ body {
   font-family: var(--font-body);
 }
 
+.skip-link {
+  position: fixed;
+  z-index: 100;
+  top: 0.5rem;
+  left: 0.5rem;
+  transform: translateY(-200%);
+  background: var(--foreground);
+  color: var(--background);
+  padding: 0.75rem 1rem;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 a {
   color: inherit;
 }
@@ -44,7 +72,6 @@ select {
 ::selection {
   background: color-mix(in srgb, var(--accent) 25%, transparent);
 }
-
 
 .lp {
   --lp-paper: #f5f4f0;
@@ -72,7 +99,6 @@ select {
   outline-offset: 2px;
   border-radius: 4px;
 }
-
 
 .lp-paint {
   position: relative;
@@ -187,7 +213,6 @@ select {
     linear-gradient(180deg, #b9c4b8 0%, #6f8a74 45%, #3c5644 75%, #22342a 100%);
 }
 
-
 .lp-dots {
   background-image: radial-gradient(
     rgba(18, 18, 18, 0.16) 1px,
@@ -195,7 +220,6 @@ select {
   );
   background-size: 46px 46px;
 }
-
 
 .lp-link {
   background-image: linear-gradient(currentColor, currentColor);
@@ -269,7 +293,6 @@ select {
 .lp-fade {
   animation: lp-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-
 
 .lp details > summary {
   list-style: none;

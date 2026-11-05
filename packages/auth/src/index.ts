@@ -4,9 +4,9 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { betterAuth } from "better-auth";
 
 const environment = parseServerEnvironment();
-const trustedOrigins = environment.BETTER_AUTH_TRUSTED_ORIGINS.split(",").map(
-  (origin) => origin.trim(),
-);
+export const trustedOrigins = environment.BETTER_AUTH_TRUSTED_ORIGINS.split(
+  ",",
+).map((origin) => origin.trim());
 
 export const auth = betterAuth({
   baseURL: environment.BETTER_AUTH_URL,

@@ -158,6 +158,7 @@ model Ticket {
   @@index([bookId])
   @@index([status, priority, createdAt])
   @@index([assignedAdminId, status, createdAt])
+  @@index([aiStatus, createdAt])
 }
 
 model TicketMessage {

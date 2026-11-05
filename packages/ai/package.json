@@ -6,6 +6,10 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-knowledge-base.mjs",
+    "test:artifact": "node scripts/verify-artifact.mjs"
+  },
   "dependencies": {
     "@google/genai": "1.38.0",
     "@repo/validation": "workspace:*"

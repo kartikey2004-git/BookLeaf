@@ -15,6 +15,19 @@ const openApiDocument = {
         summary: "Readiness probe",
         responses: {
           "200": { description: "Required dependencies are ready" },
+          "503": { description: "A required dependency is unavailable" },
+        },
+      },
+    },
+    "/api/v1/events": {
+      get: {
+        summary: "Authenticated best-effort server-sent event stream",
+        description:
+          "The stream sends a connected event and heartbeats. It is capped per user and process, closes after 15 minutes, and does not replay missed events.",
+        responses: {
+          "200": { description: "SSE stream established" },
+          "401": { description: "Unauthenticated" },
+          "429": { description: "Active stream limit reached" },
         },
       },
     },

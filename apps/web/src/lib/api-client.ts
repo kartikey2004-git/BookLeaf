@@ -9,6 +9,7 @@ export class ApiClientError extends Error {
     message: string,
     readonly status: number,
     readonly requestId?: string,
+    readonly code?: string,
   ) {
     super(message);
     this.name = "ApiClientError";
@@ -33,13 +34,15 @@ export async function apiFetch<T>(
 
   if (!response.ok) {
     const body = (await response.json().catch(() => undefined)) as
-      { error?: { message?: string; requestId?: string } } | undefined;
+      | { error?: { code?: string; message?: string; requestId?: string } }
+      | undefined;
     throw new ApiClientError(
       body?.error?.message ?? `Request failed with status ${response.status}`,
       response.status,
       body?.error?.requestId ??
         response.headers.get("x-request-id") ??
         undefined,
+      body?.error?.code,
     );
   }
 
