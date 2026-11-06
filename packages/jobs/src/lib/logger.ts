@@ -1,14 +1,14 @@
-type WorkerLogFields = Record<string, unknown>;
+type JobsLogFields = Record<string, unknown>;
 
-export function workerLog(
+export function jobsLog(
   level: "info" | "error",
   event: string,
-  fields: WorkerLogFields = {},
+  fields: JobsLogFields = {},
 ): void {
   const entry = JSON.stringify({
     level,
     time: new Date().toISOString(),
-    service: "bookleaf-worker",
+    service: "bookleaf-jobs",
     environment: process.env.NODE_ENV ?? "development",
     event,
     ...fields,
