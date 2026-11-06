@@ -1606,6 +1606,30 @@
   font-size: 0.75rem;
 }
 
+.portal-attachment-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.portal-attachment-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid #f0d2bd;
+  background: #fff5ed;
+  padding: 0.5rem 0.85rem;
+}
+
+.portal-attachment-list a {
+  color: #8b3a12;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
 /* Inline AI fallback notice */
 .portal-ai-fallback {
   display: grid;

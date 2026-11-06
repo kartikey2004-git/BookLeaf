@@ -56,6 +56,11 @@ function badgeClass(value: string): string {
   return `portal-badge portal-badge--${value.toLowerCase().replaceAll("_", "-")}`;
 }
 
+function formatFileSize(size: number): string {
+  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
 type Ticket = {
   id: string;
   reference: string;
@@ -74,6 +79,15 @@ type Ticket = {
     content: string;
     sender: { name: string; role: string };
   }[];
+  attachments?: Array<{
+    id: string;
+    fileName: string;
+    mimeType: string;
+    size: number;
+    cloudinaryPublicId: string;
+    secureUrl: string;
+    createdAt?: string;
+  }>;
   internalNotes?: { id: string; content: string; admin: { name: string } }[];
   auditEvents?: {
     id: string;
@@ -657,6 +671,34 @@ export default function AdminPage() {
                 ? new Date(selected.updatedAt).toLocaleString()
                 : "—"}
             </p>
+            {selected.attachments?.length ? (
+              <section
+                className="portal-attachment"
+                aria-label="Ticket attachments"
+              >
+                <h3>Attachments</h3>
+                <ul className="portal-attachment-list">
+                  {selected.attachments.map((a) => (
+                    <li key={a.id}>
+                      <a
+                        href={a.secureUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {a.fileName}
+                      </a>
+                      <span className="portal-attachment-size">
+                        {formatFileSize(a.size)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : (
+              <p className="portal-muted">
+                No attachments have been added to this ticket yet.
+              </p>
+            )}
             <h3>Conversation</h3>
             {selected.messages?.map((m) => (
               <article className="portal-message" key={m.id}>

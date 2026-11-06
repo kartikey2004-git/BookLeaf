@@ -49,6 +49,15 @@ type Ticket = {
     sender: { name: string; role: string };
     createdAt: string;
   }[];
+  attachments?: Array<{
+    id: string;
+    fileName: string;
+    mimeType: string;
+    size: number;
+    cloudinaryPublicId: string;
+    secureUrl: string;
+    createdAt?: string;
+  }>;
 };
 
 type PendingAttachment = {
@@ -656,6 +665,30 @@ export default function PortalHome() {
               </span>
             </header>
             <p>{selectedTicket.description}</p>
+            {selectedTicket.attachments?.length ? (
+              <section
+                className="portal-attachment"
+                aria-label="Ticket attachments"
+              >
+                <h3>Attachments</h3>
+                <ul className="portal-attachment-list">
+                  {selectedTicket.attachments.map((a) => (
+                    <li key={a.id}>
+                      <a
+                        href={a.secureUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {a.fileName}
+                      </a>
+                      <span className="portal-attachment-size">
+                        {formatFileSize(a.size)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
             {selectedTicket.messages?.map((message) => (
               <article className="portal-message" key={message.id}>
                 <strong>{message.sender.name}</strong>

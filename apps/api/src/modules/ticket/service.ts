@@ -65,16 +65,31 @@ const authorTicketSelection = {
     },
     orderBy: { createdAt: "asc" },
   },
+  attachments: {
+    select: {
+      id: true,
+      fileName: true,
+      mimeType: true,
+      size: true,
+      cloudinaryPublicId: true,
+      secureUrl: true,
+      createdAt: true,
+      uploadedByUser: { select: { name: true, role: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  },
 } as const;
 
 const authorTicketListSelection = {
   ...authorTicketSelection,
   messages: false,
+  attachments: false,
 } as const;
 
 const adminTicketListSelection = {
   ...authorTicketSelection,
   messages: false,
+  attachments: false,
   aiStatus: true,
   assignedAdmin: { select: { id: true, name: true } },
 } as const;
@@ -134,6 +149,26 @@ function message(message: {
   };
 }
 
+function attachment(attachment: {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  cloudinaryPublicId: string;
+  secureUrl: string;
+  createdAt: Date;
+}) {
+  return {
+    id: attachment.id,
+    fileName: attachment.fileName,
+    mimeType: attachment.mimeType,
+    size: attachment.size,
+    cloudinaryPublicId: attachment.cloudinaryPublicId,
+    secureUrl: attachment.secureUrl,
+    createdAt: attachment.createdAt.toISOString(),
+  };
+}
+
 function authorTicket(ticket: {
   id: string;
   reference: string;
@@ -155,6 +190,16 @@ function authorTicket(ticket: {
     editedAt: Date | null;
     sender: { name: string; role: string };
   }>;
+  attachments?: Array<{
+    id: string;
+    fileName: string;
+    mimeType: string;
+    size: number;
+    cloudinaryPublicId: string;
+    secureUrl: string;
+    createdAt: Date;
+    uploadedByUser: { name: string; role: string };
+  }> | null;
 }) {
   return {
     id: ticket.id,
@@ -173,6 +218,9 @@ function authorTicket(ticket: {
     resolvedAt: date(ticket.resolvedAt),
     closedAt: date(ticket.closedAt),
     ...(ticket.messages ? { messages: ticket.messages.map(message) } : {}),
+    ...(ticket.attachments?.length
+      ? { attachments: ticket.attachments.map(attachment) }
+      : {}),
   };
 }
 
