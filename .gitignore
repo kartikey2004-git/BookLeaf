@@ -9,6 +9,9 @@ coverage/
 *.tsbuildinfo
 .env
 .env.local
+.env.production
 !.env.example
 packages/database/src/generated/
 infrastructure/docker/.data/
+.vercel
+.env*
