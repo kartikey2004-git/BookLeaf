@@ -6,7 +6,7 @@
 
 `apps/api` is the Express HTTP boundary. Its lifecycle is security headers, CORS and body limits, request ID and structured logging, route handling, and centralized error/404 responses. It owns liveness/readiness, OpenAPI, the authentication integration seam, and reusable SSE transport.
 
-`packages/jobs` owns Inngest client configuration and durable function definitions. `apps/worker` provides a standalone Express serving endpoint; `apps/web` can expose the same functions through a Next.js serverless endpoint at `/api/inngest`. Deploy only one serving endpoint for each Inngest environment.
+`packages/jobs` owns Inngest client configuration and durable function definitions. `apps/web` can expose the same functions through a Next.js serverless endpoint at `/api/inngest`. Deploy only one serving endpoint for each Inngest environment.
 
 Shared packages are lower-level dependencies: `validation` owns environment and primitives; `contracts` owns HTTP response schemas; `database` owns Prisma/PostgreSQL access; `auth` owns the shared Better Auth configuration; `config` owns TypeScript and ESLint presets; and `ui` is reserved for framework-compatible primitives when they exist. Applications may depend on packages, but packages do not depend on applications.
 

@@ -83,9 +83,7 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -f apps/api/Dockerfile -t "$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/api:$IMAGE_TAG" .
-          docker build -f apps/worker/Dockerfile -t "$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/worker:$IMAGE_TAG" .
           docker push "$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/api:$IMAGE_TAG"
-          docker push "$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/worker:$IMAGE_TAG"
       - name: Apply reviewed Prisma migrations once
         env:
           DIRECT_URL: ${{ secrets.NEON_DIRECT_DATABASE_URL }}
@@ -97,13 +95,10 @@ jobs:
         run: |
           test -n "$WEB_ORIGIN"
           gcloud run deploy bookleaf-api --project="$PROJECT_ID" --region="$REGION" --image="$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/api:$IMAGE_TAG" --service-account="bookleaf-api@$PROJECT_ID.iam.gserviceaccount.com" --port=8080 --allow-unauthenticated --set-env-vars="NODE_ENV=production,API_HOST=0.0.0.0,WEB_ORIGIN=$WEB_ORIGIN,CORS_ORIGINS=$WEB_ORIGIN,BETTER_AUTH_URL=$WEB_ORIGIN,BETTER_AUTH_TRUSTED_ORIGINS=$WEB_ORIGIN,READINESS_CHECK_DATABASE=true" --set-secrets="DATABASE_URL=database-url:latest,BETTER_AUTH_SECRET=better-auth-secret:latest,INNGEST_EVENT_KEY=inngest-event-key:latest,INNGEST_SIGNING_KEY=inngest-signing-key:latest,GEMINI_API_KEY=gemini-api-key:latest"
-          gcloud run deploy bookleaf-worker --project="$PROJECT_ID" --region="$REGION" --image="$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/worker:$IMAGE_TAG" --service-account="bookleaf-worker@$PROJECT_ID.iam.gserviceaccount.com" --port=8080 --allow-unauthenticated --set-env-vars="NODE_ENV=production,WORKER_HOST=0.0.0.0" --set-secrets="DATABASE_URL=database-url:latest,INNGEST_EVENT_KEY=inngest-event-key:latest,INNGEST_SIGNING_KEY=inngest-signing-key:latest,GEMINI_API_KEY=gemini-api-key:latest"
       - name: Smoke-test live endpoints
         run: |
           API_URL="$(gcloud run services describe bookleaf-api --project="$PROJECT_ID" --region="$REGION" --format='value(status.url)')"
-          WORKER_URL="$(gcloud run services describe bookleaf-worker --project="$PROJECT_ID" --region="$REGION" --format='value(status.url)')"
           curl --fail --silent --show-error "$API_URL/api/v1/health/live"
-          curl --fail --silent --show-error "$WORKER_URL/api/inngest"
       - name: Deploy the prepared Vercel frontend
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

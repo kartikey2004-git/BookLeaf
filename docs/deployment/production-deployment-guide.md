@@ -8,9 +8,8 @@ This manual runbook is repository-specific. It does not mean any cloud resource 
 | ------------ | --------------------------------------------- | ------------------------- |
 | Frontend     | apps/web (@repo/web, Next.js 15)              | Vercel                    |
 | API          | apps/api/src/server.ts (@repo/api, Express 5) | Cloud Run                 |
-| Worker       | apps/worker/src/index.ts (@repo/worker)       | Cloud Run                 |
 | Database     | packages/database, Prisma 7                   | Neon PostgreSQL           |
-| Durable jobs | apps/worker/src/inngest/functions.ts          | Inngest Cloud plus worker |
+| Durable jobs | `packages/jobs`                              | Inngest Cloud             |
 | AI knowledge | packages/ai and BOOKLEAF_KNOWLEDGE_BASE.md    | worker image              |
 
 ```mermaid
@@ -110,22 +109,17 @@ Billing must be enabled. API enablement, Artifact Registry, Cloud Run, and Secre
 
 ## F. Docker production builds
 
-Production Dockerfiles are available at `apps/api/Dockerfile` and `apps/worker/Dockerfile`. They build from the repository root, generate Prisma, build and verify the AI artifact, run as a non-root user, and expose health checks. Workspace packages currently export TypeScript source, so `tsx` remains in the runtime image as the required source loader.
+Production Dockerfiles are available at `apps/api/Dockerfile`. They build from the repository root, generate Prisma, build and verify the AI artifact, run as a non-root user, and expose health checks. Workspace packages currently export TypeScript source, so `tsx` remains in the runtime image as the required source loader.
 
-Cloud Run's `PORT` is mapped to the existing `API_PORT` and `WORKER_PORT` settings when the local override is unset. Deploy both services with `API_HOST=0.0.0.0` and `WORKER_HOST=0.0.0.0`.
+Cloud Run's `PORT` is mapped to the existing `API_PORT` settings when the local override is unset. Deploy with `API_HOST=0.0.0.0`.
 
 ```powershell
 docker build -f apps/api/Dockerfile -t bookleaf-api:local .
-docker build -f apps/worker/Dockerfile -t bookleaf-worker:local .
 docker run --rm -p 8080:8080 --env-file .env bookleaf-api:local
-docker run --rm -p 8081:8080 --env-file .env bookleaf-worker:local
 $TAG=(git rev-parse --short HEAD)
 $API_IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/api:$TAG"
-$WORKER_IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/worker:$TAG"
 docker tag bookleaf-api:local $API_IMAGE
-docker tag bookleaf-worker:local $WORKER_IMAGE
 docker push $API_IMAGE
-docker push $WORKER_IMAGE
 gcloud artifacts docker images list "$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY"
 ```
 

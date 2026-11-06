@@ -5,7 +5,6 @@ on:
     paths:
       - ".github/workflows/**"
       - "apps/api/**"
-      - "apps/worker/**"
       - "packages/ai/**"
       - "packages/auth/**"
       - "packages/contracts/**"
@@ -55,10 +54,6 @@ jobs:
         env:
           DATABASE_URL: postgresql://integration:integration-password@localhost:5432/bookleaf_integration?schema=public
       - run: pnpm --filter @repo/api build
-      - run: pnpm --filter @repo/worker typecheck
-      - run: pnpm --filter @repo/worker lint
-      - run: pnpm --filter @repo/worker test
-      - run: pnpm --filter @repo/worker build
       - run: pnpm --filter @repo/database validate
         env:
           DATABASE_URL: postgresql://integration:integration-password@localhost:5432/bookleaf_integration?schema=public

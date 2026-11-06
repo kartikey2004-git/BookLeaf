@@ -12,7 +12,7 @@ claim. No provider resource was created, modified, committed, or deployed.
 - `.env` and `.env.local` are ignored; neither is tracked. `.env.example` is
   intentionally tracked and contains placeholders only.
 - The frontend root is `apps/web`; API and worker entry points are
-  `apps/api/src/server.ts` and `apps/worker/src/index.ts`.
+  `apps/api/src/server.ts`.
 - Node `v26.5.0`, pnpm `10.23.0`, Vercel CLI `65.11.0`, GitHub CLI `2.103.3`,
   Docker CLI `29.7.2`, and Google Cloud SDK `592.0.0` were resolved from this
   Codex session. `gcloud` is installed outside `PATH` at the documented
@@ -24,7 +24,7 @@ claim. No provider resource was created, modified, committed, or deployed.
 
 ## Prepared configuration
 
-- `apps/api/Dockerfile` and `apps/worker/Dockerfile` build from the monorepo
+- `apps/api/Dockerfile` builds from the monorepo
   root, generate Prisma, package the AI knowledge-base artifact, run as an
   unprivileged user, expose Cloud Run port 8080, and define health checks.
 - API and worker map Cloud Run's `PORT` to their existing local port settings.
