@@ -8,11 +8,11 @@ import {
   prioritySchema,
 } from "@repo/ai";
 import { z } from "zod";
-import { getWorkerEnvironment } from "../config/env.js";
-import { workerLog } from "../lib/logger.js";
+import { getJobsEnvironment } from "../config/env.js";
+import { jobsLog } from "../lib/logger.js";
 import { inngest } from "./client.js";
 
-const environment = getWorkerEnvironment();
+const environment = getJobsEnvironment();
 const ticketCreatedEventSchema = z.object({
   ticketId: z.string().min(1).max(255),
 });
@@ -40,7 +40,7 @@ async function processTicket(ticketId: string) {
     select: { id: true, subject: true, description: true, aiStatus: true },
   });
   if (!ticket || ticket.aiStatus === "COMPLETED") {
-    workerLog("info", "ticket_ai_skipped", {
+    jobsLog("info", "ticket_ai_skipped", {
       ticketId,
       reason: "complete_or_missing",
     });
@@ -49,7 +49,7 @@ async function processTicket(ticketId: string) {
   if (!environment.GEMINI_API_KEY)
     throw new Error("GEMINI_API_KEY is required to process AI tickets");
   if (!(await claimTicketForAi(ticketId))) {
-    workerLog("info", "ticket_ai_skipped", { ticketId, reason: "not_claimed" });
+    jobsLog("info", "ticket_ai_skipped", { ticketId, reason: "not_claimed" });
     return { skipped: true };
   }
   const text = `Subject: ${ticket.subject}\nDescription: ${ticket.description}`;
@@ -81,7 +81,7 @@ async function processTicket(ticketId: string) {
         aiError: null,
       },
     });
-    workerLog("info", "ticket_ai_completed", { ticketId });
+    jobsLog("info", "ticket_ai_completed", { ticketId });
     return { processed: true };
   } catch (error) {
     await prisma.ticket.update({
@@ -94,7 +94,7 @@ async function processTicket(ticketId: string) {
             : "AI processing failed",
       },
     });
-    workerLog("error", "ticket_ai_failed", { ticketId });
+    jobsLog("error", "ticket_ai_failed", { ticketId });
     throw error;
   }
 }

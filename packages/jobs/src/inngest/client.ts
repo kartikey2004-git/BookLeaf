@@ -1,7 +1,7 @@
 import { Inngest } from "inngest";
-import { getWorkerEnvironment } from "../config/env.js";
+import { getJobsEnvironment } from "../config/env.js";
 
-const environment = getWorkerEnvironment();
+const environment = getJobsEnvironment();
 
 export const inngest = new Inngest({
   id: environment.INNGEST_APP_ID,

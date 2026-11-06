@@ -6,7 +6,7 @@ BookLeaf is a TypeScript monorepo for an author publishing portal. Authors can r
 
 - `apps/web` — Next.js App Router marketing pages and protected author/admin portal.
 - `apps/api` — Express REST API, health probes, OpenAPI, authenticated SSE, and middleware.
-- `apps/worker` — Inngest worker serving AI job recovery and processing.
+- `packages/jobs` — Inngest functions (ticket AI triage and recovery), served by the `apps/web` `/api/inngest` endpoint.
 - `packages/*` — shared auth, database, validation, contracts, configuration, AI, and UI code.
 
 See the [system overview](docs/architecture/system-overview.md) and [local setup](docs/development/local-setup.md) for detail.

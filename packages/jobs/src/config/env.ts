@@ -10,8 +10,6 @@ const schema = z
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
-    WORKER_HOST: z.string().default("127.0.0.1"),
-    WORKER_PORT: z.coerce.number().int().min(1).max(65535).default(4001),
     INNGEST_APP_ID: z.string().min(1).default("foundation-worker"),
     INNGEST_EVENT_KEY: optionalNonEmptyString,
     INNGEST_SIGNING_KEY: optionalNonEmptyString,
@@ -37,9 +35,6 @@ const schema = z
     }
   });
 
-export function getWorkerEnvironment(source: NodeJS.ProcessEnv = process.env) {
-  return schema.parse({
-    ...source,
-    WORKER_PORT: source.WORKER_PORT ?? source.PORT,
-  });
+export function getJobsEnvironment(source: NodeJS.ProcessEnv = process.env) {
+  return schema.parse({ ...source });
 }

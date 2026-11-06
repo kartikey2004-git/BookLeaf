@@ -2,7 +2,7 @@
 
 ## Current verified state
 
-This is a pnpm 10/Turborepo monorepo. `apps/web` is a Next.js 15 App Router UI, `apps/api` is the Express 5 REST/SSE boundary, and `apps/worker` owns Inngest serving. Shared packages own Better Auth, Prisma 7/PostgreSQL access, Zod validation, contracts, configuration, and UI utilities. Exact resolved versions are in `pnpm-lock.yaml`; use root scripts rather than global tools.
+This is a pnpm 10/Turborepo monorepo. `apps/web` is a Next.js 15 App Router UI (including the `/api/inngest` endpoint that serves the shared Inngest functions), and `apps/api` is the Express 5 REST/SSE boundary. Shared packages own Better Auth, Prisma 7/PostgreSQL access, Zod validation, contracts, configuration, and UI utilities. Exact resolved versions are in `pnpm-lock.yaml`; use root scripts rather than global tools.
 
 The repository has backend and dependency-security CI workflows. Database-backed and authentication integration checks use a disposable local PostgreSQL container and isolated environment values; never point them at a shared database.
 
@@ -11,7 +11,7 @@ The repository has backend and dependency-security CI workflows. Database-backed
 1. Read the affected package manifest, source, and this file before editing.
 2. Map package responsibility and dependency direction before cross-package changes.
 3. Use `pnpm install`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:integration`, and `pnpm build` from the root when applicable.
-4. Keep frontend, API, data-access, authentication, contracts, and worker boundaries explicit. Do not introduce microservices or refactor unrelated business logic.
+4. Keep frontend, API, data-access, authentication, contracts, and background-jobs boundaries explicit. Do not introduce microservices or refactor unrelated business logic.
 5. Follow the matching skill in `.claude/skills/` for Next.js, Better Auth, Express, Prisma/Postgres, Inngest, SSE, OpenAPI, monorepo work, or production review.
 
 ## Engineering conventions

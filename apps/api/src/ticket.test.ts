@@ -69,7 +69,20 @@ const ticketService = {
     editedAt: null,
     sender: { name: "Priya", role: "AUTHOR" },
   }),
-  listAdmin: async () => ({ tickets: [ticket], total: 1 }),
+  listAdmin: async () => ({
+    tickets: [
+      {
+        ...ticket,
+        ai: { status: "COMPLETED" },
+        assignedAdmin: null,
+      },
+    ],
+    total: 1,
+  }),
+  getTicketAudience: async () => ({
+    authorId: "author-1",
+    reference: "BL-2026-EXAMPLE",
+  }),
   getAdmin: async (ticketId: string) =>
     ticketId === "ticket-1"
       ? {

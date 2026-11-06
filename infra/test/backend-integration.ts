@@ -1,3 +1,4 @@
+import "./integration-env.js";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { test } from "node:test";
@@ -7,7 +8,7 @@ import { auth, getVerifiedSession } from "@repo/auth";
 import { toNodeHandler } from "better-auth/node";
 import { createApp } from "../../apps/api/src/app.js";
 import { prismaTicketService } from "../../apps/api/src/modules/ticket/service.js";
-import { claimTicketForAi } from "../../apps/worker/src/inngest/functions.js";
+import { claimTicketForAi } from "../../packages/jobs/src/inngest/functions.js";
 
 const databaseUrl = process.env.DATABASE_URL ?? "";
 const database = new URL(databaseUrl);
@@ -48,7 +49,7 @@ const api = createApp(undefined, toNodeHandler(auth) as never, {
   },
 });
 
-test("Better Auth, PostgreSQL transactions, and worker claims use real local infrastructure", async () => {
+test("Better Auth, PostgreSQL transactions, and AI claim races use real local infrastructure", async () => {
   const anonymous = await request(api).get("/api/v1/author/me");
   assert.equal(anonymous.status, 401);
 
