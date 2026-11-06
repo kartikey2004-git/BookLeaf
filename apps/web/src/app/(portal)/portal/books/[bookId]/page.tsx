@@ -91,20 +91,36 @@ export default function BookPage({
             </article>
             <article className="portal-card">
               <h2>Sales</h2>
-              <p>{book.totalCopiesSold} copies sold</p>
-              <p>MRP: {book.mrp ? `₹${book.mrp}` : "Unavailable"}</p>
-              <p>
-                Per-copy royalty:{" "}
-                {book.royaltyPerCopy
-                  ? `₹${book.royaltyPerCopy}`
-                  : "Unavailable"}
-              </p>
+              {/production|typesetting|cover|manuscript/i.test(book.status) ? (
+                <>
+                  <p>In production — sales begin after release</p>
+                  <p>MRP: {book.mrp ? `₹${book.mrp}` : "Not announced"}</p>
+                  <p>Per-copy royalty: Set after publication</p>
+                </>
+              ) : (
+                <>
+                  <p>{book.totalCopiesSold} copies sold</p>
+                  <p>MRP: {book.mrp ? `₹${book.mrp}` : "Unavailable"}</p>
+                  <p>
+                    Per-copy royalty:{" "}
+                    {book.royaltyPerCopy
+                      ? `₹${book.royaltyPerCopy}`
+                      : "Unavailable"}
+                  </p>
+                </>
+              )}
             </article>
             <article className="portal-card">
               <h2>Royalties</h2>
-              <p>Earned: ₹{book.totalRoyaltyEarned}</p>
-              <p>Paid: ₹{book.royaltyPaid}</p>
-              <p>Pending: ₹{book.royaltyPending}</p>
+              {/production|typesetting|cover|manuscript/i.test(book.status) ? (
+                <p>Royalties begin once the book is published.</p>
+              ) : (
+                <>
+                  <p>Earned: ₹{book.totalRoyaltyEarned}</p>
+                  <p>Paid: ₹{book.royaltyPaid}</p>
+                  <p>Pending: ₹{book.royaltyPending}</p>
+                </>
+              )}
             </article>
           </section>
           <section className="portal-section">

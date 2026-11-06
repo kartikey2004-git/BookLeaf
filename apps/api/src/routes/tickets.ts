@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Router } from "express";
+import { Router, type Request } from "express";
 import { z } from "@repo/validation";
 import { createRequireAdmin } from "../middleware/admin-auth.js";
 import { HttpError } from "../middleware/errors.js";
@@ -25,7 +25,16 @@ import {
 import type { ApiEnvironment } from "../config/env.js";
 import { createInngestClient, publishTicketCreated } from "../lib/inngest.js";
 import { createFixedWindowRateLimit } from "../middleware/rate-limit.js";
-import { writeEvent } from "../lib/sse.js";
+import {
+  initializeEventStream,
+  canOpenEventStream,
+  writeEvent,
+} from "../lib/sse.js";
+import {
+  publishAuthorTicketEvent,
+  subscribeAuthorTicketEvents,
+  type TicketChangeReason,
+} from "../lib/ticket-events.js";
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -50,6 +59,7 @@ const adminListSchema = paginationSchema.extend({
   assignedAdminId: z.string().min(1).max(255).optional(),
   createdFrom: z.coerce.date().optional(),
   createdTo: z.coerce.date().optional(),
+  unresolved: z.coerce.boolean().optional(),
 });
 const versionSchema = z.object({ version: z.coerce.number().int().min(0) });
 const statusSchema = versionSchema.extend({ status: z.enum(ticketStatuses) });
@@ -62,6 +72,34 @@ const categorySchema = versionSchema.extend({
 const assignmentSchema = versionSchema.extend({
   assignedAdminId: z.string().min(1).max(255).nullable(),
 });
+
+async function notifyTicketChanged(
+  request: Request,
+  ticketService: TicketService,
+  ticketId: string,
+  reason: TicketChangeReason,
+): Promise<void> {
+  try {
+    const audience = await ticketService.getTicketAudience(ticketId);
+    if (audience) {
+      publishAuthorTicketEvent(audience.authorId, {
+        ticketId,
+        reference: audience.reference,
+        reason,
+      });
+    }
+  } catch (error) {
+    request.log?.warn?.(
+      {
+        requestId: request.requestId,
+        failureKind: "TICKET_EVENT_PUBLISH_FAILED",
+        reason,
+        err: error instanceof Error ? error.message : String(error),
+      },
+      "Could not publish ticket update event",
+    );
+  }
+}
 
 export function createTicketRouters(
   getSession: SessionResolver,
@@ -91,6 +129,12 @@ export function createTicketRouters(
           () => undefined,
         );
       }
+      await notifyTicketChanged(
+        request,
+        ticketService,
+        ticket.id,
+        "ticket-created",
+      );
       response.status(201).json({ ticket });
     } catch (error) {
       next(error);
@@ -112,6 +156,27 @@ export function createTicketRouters(
     } catch (error) {
       next(error);
     }
+  });
+  author.get("/author/tickets/stream", (request, response) => {
+    const identity = request.authorIdentity!;
+    if (!canOpenEventStream(identity.userId)) {
+      response.status(503).json({
+        error: {
+          code: "EVENT_STREAM_UNAVAILABLE",
+          message:
+            "Too many live update streams are open. Please try again shortly.",
+        },
+      });
+      return;
+    }
+    initializeEventStream(request, response, identity.userId);
+    const unsubscribe = subscribeAuthorTicketEvents(identity.id, response);
+    request.on("close", unsubscribe);
+    writeEvent(response, {
+      id: randomUUID(),
+      event: "connected",
+      data: { ok: true },
+    });
   });
   author.get("/author/tickets/:ticketId", async (request, response, next) => {
     try {
@@ -137,6 +202,12 @@ export function createTicketRouters(
           request.authorIdentity!.userId,
           ticketId,
           messageSchema.parse(request.body),
+        );
+        await notifyTicketChanged(
+          request,
+          ticketService,
+          ticketId,
+          "author-message",
         );
         response.status(201).json({ message });
       } catch (error) {
@@ -198,14 +269,19 @@ export function createTicketRouters(
     async (request, response, next) => {
       try {
         const { ticketId } = ticketIdSchema.parse(request.params);
-        response.json({
-          ticket: await ticketService.updateStatus(
-            request.adminIdentity!.userId,
-            ticketId,
-            statusSchema.parse(request.body).status,
-            statusSchema.parse(request.body).version,
-          ),
-        });
+        const ticket = await ticketService.updateStatus(
+          request.adminIdentity!.userId,
+          ticketId,
+          statusSchema.parse(request.body).status,
+          statusSchema.parse(request.body).version,
+        );
+        await notifyTicketChanged(
+          request,
+          ticketService,
+          ticketId,
+          "status-changed",
+        );
+        response.json({ ticket });
       } catch (error) {
         next(error);
       }
@@ -216,14 +292,19 @@ export function createTicketRouters(
     async (request, response, next) => {
       try {
         const { ticketId } = ticketIdSchema.parse(request.params);
-        response.json({
-          ticket: await ticketService.updatePriority(
-            request.adminIdentity!.userId,
-            ticketId,
-            prioritySchema.parse(request.body).priority,
-            prioritySchema.parse(request.body).version,
-          ),
-        });
+        const ticket = await ticketService.updatePriority(
+          request.adminIdentity!.userId,
+          ticketId,
+          prioritySchema.parse(request.body).priority,
+          prioritySchema.parse(request.body).version,
+        );
+        await notifyTicketChanged(
+          request,
+          ticketService,
+          ticketId,
+          "priority-changed",
+        );
+        response.json({ ticket });
       } catch (error) {
         next(error);
       }
@@ -234,14 +315,19 @@ export function createTicketRouters(
     async (request, response, next) => {
       try {
         const { ticketId } = ticketIdSchema.parse(request.params);
-        response.json({
-          ticket: await ticketService.updateCategory(
-            request.adminIdentity!.userId,
-            ticketId,
-            categorySchema.parse(request.body).category,
-            categorySchema.parse(request.body).version,
-          ),
-        });
+        const ticket = await ticketService.updateCategory(
+          request.adminIdentity!.userId,
+          ticketId,
+          categorySchema.parse(request.body).category,
+          categorySchema.parse(request.body).version,
+        );
+        await notifyTicketChanged(
+          request,
+          ticketService,
+          ticketId,
+          "category-changed",
+        );
+        response.json({ ticket });
       } catch (error) {
         next(error);
       }
@@ -252,14 +338,19 @@ export function createTicketRouters(
     async (request, response, next) => {
       try {
         const { ticketId } = ticketIdSchema.parse(request.params);
-        response.json({
-          ticket: await ticketService.updateAssignment(
-            request.adminIdentity!.userId,
-            ticketId,
-            assignmentSchema.parse(request.body).assignedAdminId,
-            assignmentSchema.parse(request.body).version,
-          ),
-        });
+        const ticket = await ticketService.updateAssignment(
+          request.adminIdentity!.userId,
+          ticketId,
+          assignmentSchema.parse(request.body).assignedAdminId,
+          assignmentSchema.parse(request.body).version,
+        );
+        await notifyTicketChanged(
+          request,
+          ticketService,
+          ticketId,
+          "assignment-changed",
+        );
+        response.json({ ticket });
       } catch (error) {
         next(error);
       }
@@ -462,6 +553,12 @@ export function createTicketRouters(
           ticketId,
           messageSchema.parse(request.body),
         );
+        await notifyTicketChanged(
+          request,
+          ticketService,
+          ticketId,
+          "admin-message",
+        );
         response.status(201).json({ message });
       } catch (error) {
         next(error);
@@ -477,6 +574,12 @@ export function createTicketRouters(
           request.adminIdentity!.userId,
           ticketId,
           messageSchema.parse(request.body),
+        );
+        await notifyTicketChanged(
+          request,
+          ticketService,
+          ticketId,
+          "internal-note-added",
         );
         response.status(201).json({ note });
       } catch (error) {

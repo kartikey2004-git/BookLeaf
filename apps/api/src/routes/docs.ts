@@ -85,6 +85,20 @@ const openApiDocument = {
         responses: { "200": { description: "Paginated ticket list" } },
       },
     },
+    "/api/v1/author/tickets/stream": {
+      get: {
+        summary:
+          "Subscribe to ticket updates for the authenticated author (SSE)",
+        responses: {
+          "200": {
+            description:
+              "text/event-stream; emits `connected` on open and `ticket.updated` whenever a ticket changes. Events only carry ticket id, reference and reason - never message or note bodies.",
+          },
+          "401": { description: "Unauthenticated" },
+          "503": { description: "Too many live streams" },
+        },
+      },
+    },
     "/api/v1/author/tickets/{ticketId}": {
       get: {
         summary: "Get an authenticated author's ticket and public messages",
@@ -113,6 +127,12 @@ const openApiDocument = {
           { name: "category", in: "query" },
           { name: "priority", in: "query" },
           { name: "assignedAdminId", in: "query" },
+          {
+            name: "unresolved",
+            in: "query",
+            description:
+              "When true and no status is given, only OPEN and IN_PROGRESS tickets are returned.",
+          },
           { name: "createdFrom", in: "query" },
           { name: "createdTo", in: "query" },
         ],

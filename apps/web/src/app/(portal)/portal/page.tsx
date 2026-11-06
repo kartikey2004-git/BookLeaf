@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import {
-  apiFetch,
-  userFacingErrorMessage,
-} from "../../../lib/api-client";
+import { Paperclip, X } from "lucide-react";
+import { apiFetch, userFacingErrorMessage } from "../../../lib/api-client";
 import { usePortalToast } from "./portal-toast";
 
 type Overview = {
@@ -15,6 +13,15 @@ type Overview = {
   totalRoyaltyPaid: string;
   totalRoyaltyPending: string;
 };
+
+function badgeClass(value: string): string {
+  return `portal-badge portal-badge--${value.toLowerCase().replaceAll("_", "-")}`;
+}
+
+function formatFileSize(size: number): string {
+  if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
 
 type Book = { id: string; title: string };
 
@@ -45,7 +52,13 @@ export default function PortalHome() {
   const [loadingTicket, setLoadingTicket] = useState(false);
   const [creating, setCreating] = useState(false);
   const [replying, setReplying] = useState(false);
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const [liveUpdates, setLiveUpdates] = useState<
+    "connecting" | "live" | "paused"
+  >("connecting");
   const selectionRequest = useRef(0);
+  const selectedTicketIdRef = useRef<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { notify } = usePortalToast();
 
   useEffect(() => {
@@ -54,10 +67,7 @@ export default function PortalHome() {
 
     Promise.all([
       apiFetch<{ overview: Overview }>("/api/v1/author/overview", options),
-      apiFetch<{ books: Book[] }>(
-        "/api/v1/author/books?pageSize=50",
-        options,
-      ),
+      apiFetch<{ books: Book[] }>("/api/v1/author/books?pageSize=50", options),
       apiFetch<{ tickets: Ticket[] }>(
         "/api/v1/author/tickets?pageSize=50",
         options,
@@ -86,6 +96,46 @@ export default function PortalHome() {
     };
   }, [notify]);
 
+  useEffect(() => {
+    selectedTicketIdRef.current = selectedTicketId;
+  }, [selectedTicketId]);
+
+  useEffect(() => {
+    const source = new EventSource("/api/v1/author/tickets/stream");
+    const sync = () => {
+      void (async () => {
+        try {
+          const list = await apiFetch<{ tickets: Ticket[] }>(
+            "/api/v1/author/tickets?pageSize=50",
+          );
+          setTickets(list.tickets);
+          const openId = selectedTicketIdRef.current;
+          if (openId) {
+            try {
+              const detail = await apiFetch<{ ticket: Ticket }>(
+                `/api/v1/author/tickets/${openId}`,
+              );
+              setSelectedTicket(detail.ticket);
+            } catch {
+              // Keep the current view if the detail refresh hiccups.
+            }
+          }
+        } catch {
+          // Transient failure; the next event resyncs.
+        }
+      })();
+    };
+    source.addEventListener("ticket.updated", sync);
+    source.addEventListener("connected", () => setLiveUpdates("live"));
+    source.addEventListener("open", () => setLiveUpdates("live"));
+    source.addEventListener("error", () => {
+      if (source.readyState === EventSource.CLOSED) {
+        setLiveUpdates("paused");
+      }
+    });
+    return () => source.close();
+  }, []);
+
   async function refreshTickets() {
     const response = await apiFetch<{ tickets: Ticket[] }>(
       "/api/v1/author/tickets?pageSize=50",
@@ -93,8 +143,14 @@ export default function PortalHome() {
     setTickets(response.tickets);
   }
 
+  function clearAttachment() {
+    setAttachment(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   async function selectTicket(ticketId: string) {
     const request = ++selectionRequest.current;
+    selectedTicketIdRef.current = ticketId;
     setSelectedTicketId(ticketId);
     setSelectedTicket(null);
     setLoadingTicket(true);
@@ -112,6 +168,7 @@ export default function PortalHome() {
           userFacingErrorMessage(cause, "Could not load this ticket."),
         );
         setSelectedTicketId(null);
+        selectedTicketIdRef.current = null;
       }
     } finally {
       if (request === selectionRequest.current) setLoadingTicket(false);
@@ -142,12 +199,16 @@ export default function PortalHome() {
         }),
       });
       formElement.reset();
+      clearAttachment();
       notify("success", "Ticket created.");
 
       try {
         await refreshTickets();
       } catch {
-        notify("error", "Ticket created, but the ticket list could not be refreshed.");
+        notify(
+          "error",
+          "Ticket created, but the ticket list could not be refreshed.",
+        );
       }
     } catch (cause) {
       notify(
@@ -164,19 +225,18 @@ export default function PortalHome() {
     if (!selectedTicket) return;
 
     const formElement = event.currentTarget;
-    const content = String(new FormData(formElement).get("content") ?? "").trim();
+    const content = String(
+      new FormData(formElement).get("content") ?? "",
+    ).trim();
     if (!content) return;
 
     setReplying(true);
     try {
-      await apiFetch(
-        `/api/v1/author/tickets/${selectedTicket.id}/messages`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content }),
-        },
-      );
+      await apiFetch(`/api/v1/author/tickets/${selectedTicket.id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
       formElement.reset();
       notify("success", "Reply sent.");
 
@@ -217,15 +277,11 @@ export default function PortalHome() {
             <p>Published</p>
           </article>
           <article className="portal-card">
-            <span className="portal-stat">
-              ₹{overview.totalRoyaltyEarned}
-            </span>
+            <span className="portal-stat">₹{overview.totalRoyaltyEarned}</span>
             <p>Royalty earned</p>
           </article>
           <article className="portal-card">
-            <span className="portal-stat">
-              ₹{overview.totalRoyaltyPending}
-            </span>
+            <span className="portal-stat">₹{overview.totalRoyaltyPending}</span>
             <p>Royalty pending</p>
           </article>
         </section>
@@ -237,6 +293,16 @@ export default function PortalHome() {
             <p className="portal-muted">Author support</p>
             <h2 id="support-title">Your support requests</h2>
           </div>
+          {liveUpdates === "live" ? (
+            <span className="portal-live" role="status">
+              <span className="portal-live-dot" aria-hidden="true" />
+              Live
+            </span>
+          ) : liveUpdates === "paused" ? (
+            <span className="portal-live portal-live--paused" role="status">
+              Updates paused
+            </span>
+          ) : null}
         </header>
 
         <div className="portal-support-grid">
@@ -277,6 +343,56 @@ export default function PortalHome() {
                   required
                 />
               </label>
+              <div className="portal-attachment">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  id="ticket-attachment"
+                  name="attachment"
+                  className="portal-attachment-input"
+                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt,.md"
+                  onChange={(event) =>
+                    setAttachment(event.target.files?.[0] ?? null)
+                  }
+                />
+                <div className="portal-attachment-row">
+                  <label
+                    htmlFor="ticket-attachment"
+                    className="portal-attachment-button"
+                  >
+                    <Paperclip aria-hidden="true" />
+                    {attachment ? "Change file" : "Attach a file"}
+                  </label>
+                  {attachment ? (
+                    <span className="portal-attachment-chip">
+                      <span
+                        className="portal-attachment-name"
+                        title={attachment.name}
+                      >
+                        {attachment.name}
+                      </span>
+                      <span className="portal-attachment-size">
+                        {formatFileSize(attachment.size)}
+                      </span>
+                      <button
+                        type="button"
+                        className="portal-attachment-remove"
+                        aria-label="Remove attachment"
+                        onClick={clearAttachment}
+                      >
+                        <X aria-hidden="true" />
+                      </button>
+                    </span>
+                  ) : (
+                    <span
+                      id="attachment-hint"
+                      className="portal-attachment-hint"
+                    >
+                      Optional — PDF, Word, image or text, up to 10 MB
+                    </span>
+                  )}
+                </div>
+              </div>
               <button className="portal-button" disabled={creating || loading}>
                 {creating ? "Sending…" : "Send request"}
               </button>
@@ -315,9 +431,15 @@ export default function PortalHome() {
                         <small>{ticket.reference}</small>
                       </td>
                       <td>
-                        <span className="portal-badge">{ticket.status}</span>
+                        <span className={badgeClass(ticket.status)}>
+                          {ticket.status.replaceAll("_", " ")}
+                        </span>
                       </td>
-                      <td>{ticket.priority}</td>
+                      <td>
+                        <span className={badgeClass(ticket.priority)}>
+                          {ticket.priority}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -339,7 +461,9 @@ export default function PortalHome() {
                 <p className="portal-muted">{selectedTicket.reference}</p>
                 <h3 id="selected-ticket-title">{selectedTicket.subject}</h3>
               </div>
-              <span className="portal-badge">{selectedTicket.status}</span>
+              <span className={badgeClass(selectedTicket.status)}>
+                {selectedTicket.status.replaceAll("_", " ")}
+              </span>
             </header>
             <p>{selectedTicket.description}</p>
             {selectedTicket.messages?.map((message) => (
@@ -349,7 +473,10 @@ export default function PortalHome() {
               </article>
             ))}
             {["OPEN", "IN_PROGRESS"].includes(selectedTicket.status) ? (
-              <form className="portal-form portal-reply-form" onSubmit={replyToTicket}>
+              <form
+                className="portal-form portal-reply-form"
+                onSubmit={replyToTicket}
+              >
                 <label>
                   Reply
                   <textarea name="content" maxLength={10000} required />

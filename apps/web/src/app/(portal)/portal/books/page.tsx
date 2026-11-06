@@ -1,10 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import {
-  apiFetch,
-  userFacingErrorMessage,
-} from "../../../../lib/api-client";
+import { apiFetch, userFacingErrorMessage } from "../../../../lib/api-client";
 import { usePortalToast } from "../portal-toast";
 type Book = {
   id: string;
@@ -16,33 +13,43 @@ type Book = {
   mrp: string | null;
   totalCopiesSold: number;
   royaltyPerCopy: string | null;
+  totalRoyaltyEarned: string;
+  royaltyPaid: string;
+  royaltyPending: string;
 };
+
+function isInProduction(book: Book): boolean {
+  return /production|typesetting|cover|manuscript/i.test(book.status);
+}
 export default function BooksPage() {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const { notify } = usePortalToast();
-  const loadBooks = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true);
-    setLoadFailed(false);
-    try {
-      const response = await apiFetch<{ books: Book[] }>(
-        "/api/v1/author/books?pageSize=50",
-        signal ? { signal } : undefined,
-      );
-      if (!signal?.aborted) setBooks(response.books);
-    } catch (cause) {
-      if (!signal?.aborted) {
-        setLoadFailed(true);
-        notify(
-          "error",
-          userFacingErrorMessage(cause, "Could not load your books."),
+  const loadBooks = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoading(true);
+      setLoadFailed(false);
+      try {
+        const response = await apiFetch<{ books: Book[] }>(
+          "/api/v1/author/books?pageSize=50",
+          signal ? { signal } : undefined,
         );
+        if (!signal?.aborted) setBooks(response.books);
+      } catch (cause) {
+        if (!signal?.aborted) {
+          setLoadFailed(true);
+          notify(
+            "error",
+            userFacingErrorMessage(cause, "Could not load your books."),
+          );
+        }
+      } finally {
+        if (!signal?.aborted) setLoading(false);
       }
-    } finally {
-      if (!signal?.aborted) setLoading(false);
-    }
-  }, [notify]);
+    },
+    [notify],
+  );
   useEffect(() => {
     const controller = new AbortController();
     void loadBooks(controller.signal);
@@ -83,28 +90,54 @@ export default function BooksPage() {
                 <th scope="col">ISBN</th>
                 <th scope="col">Status</th>
                 <th scope="col">Sales</th>
+                <th scope="col">Earned</th>
+                <th scope="col">Paid</th>
+                <th scope="col">Pending</th>
                 <th scope="col">MRP</th>
               </tr>
             </thead>
             <tbody>
-              {books.map((book) => (
-                <tr key={book.id}>
-                  <td data-label="Book">
-                    <Link href={`/portal/books/${book.id}`}>{book.title}</Link>
-                    <br />
-                    <small>
-                      {book.genre} ·{" "}
-                      {book.publicationDate ?? "Publication date unavailable"}
-                    </small>
-                  </td>
-                  <td data-label="ISBN">{book.isbn}</td>
-                  <td data-label="Status">
-                    <span className="portal-badge">{book.status}</span>
-                  </td>
-                  <td data-label="Sales">{book.totalCopiesSold}</td>
-                  <td data-label="MRP">{book.mrp ? `₹${book.mrp}` : "—"}</td>
-                </tr>
-              ))}
+              {books.map((book) => {
+                const inProduction = isInProduction(book);
+                return (
+                  <tr key={book.id}>
+                    <td data-label="Book">
+                      <Link href={`/portal/books/${book.id}`}>
+                        {book.title}
+                      </Link>
+                      <br />
+                      <small>
+                        {book.genre} ·{" "}
+                        {book.publicationDate ??
+                          (inProduction
+                            ? "In production"
+                            : "Publication date unavailable")}
+                      </small>
+                    </td>
+                    <td data-label="ISBN">{book.isbn}</td>
+                    <td data-label="Status">
+                      <span className="portal-badge">{book.status}</span>
+                    </td>
+                    <td data-label="Sales">
+                      {inProduction ? (
+                        <span className="portal-muted-cell">In production</span>
+                      ) : (
+                        book.totalCopiesSold
+                      )}
+                    </td>
+                    <td data-label="Earned">
+                      {inProduction ? "—" : `₹${book.totalRoyaltyEarned}`}
+                    </td>
+                    <td data-label="Paid">
+                      {inProduction ? "—" : `₹${book.royaltyPaid}`}
+                    </td>
+                    <td data-label="Pending">
+                      {inProduction ? "—" : `₹${book.royaltyPending}`}
+                    </td>
+                    <td data-label="MRP">{book.mrp ? `₹${book.mrp}` : "—"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

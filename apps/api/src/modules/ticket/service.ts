@@ -37,6 +37,7 @@ type AdminListInput = {
   assignedAdminId?: string | undefined;
   createdFrom?: Date | undefined;
   createdTo?: Date | undefined;
+  unresolved?: boolean | undefined;
 };
 
 const authorTicketSelection = {
@@ -69,6 +70,13 @@ const authorTicketSelection = {
 const authorTicketListSelection = {
   ...authorTicketSelection,
   messages: false,
+} as const;
+
+const adminTicketListSelection = {
+  ...authorTicketSelection,
+  messages: false,
+  aiStatus: true,
+  assignedAdmin: { select: { id: true, name: true } },
 } as const;
 
 const adminTicketSelection = {
@@ -165,6 +173,19 @@ function authorTicket(ticket: {
     resolvedAt: date(ticket.resolvedAt),
     closedAt: date(ticket.closedAt),
     ...(ticket.messages ? { messages: ticket.messages.map(message) } : {}),
+  };
+}
+
+function adminTicketListItem(
+  ticket: Parameters<typeof authorTicket>[0] & {
+    aiStatus: string;
+    assignedAdmin: { id: string; name: string } | null;
+  },
+) {
+  return {
+    ...authorTicket(ticket),
+    ai: { status: ticket.aiStatus },
+    assignedAdmin: ticket.assignedAdmin,
   };
 }
 
@@ -266,9 +287,12 @@ export type TicketService = {
     input: MessageInput,
   ): Promise<ReturnType<typeof message>>;
   listAdmin(input: AdminListInput): Promise<{
-    tickets: Array<ReturnType<typeof authorTicket>>;
+    tickets: Array<ReturnType<typeof adminTicketListItem>>;
     total: number;
   }>;
+  getTicketAudience(
+    ticketId: string,
+  ): Promise<{ authorId: string; reference: string } | null>;
   getAdmin(ticketId: string): Promise<ReturnType<typeof adminTicket> | null>;
   updateStatus(
     actorUserId: string,
@@ -421,7 +445,11 @@ export const prismaTicketService: TicketService = {
   },
   async listAdmin(input) {
     const where = {
-      ...(input.status ? { status: input.status } : {}),
+      ...(input.status
+        ? { status: input.status }
+        : input.unresolved
+          ? { status: { in: ["OPEN", "IN_PROGRESS"] as TicketStatus[] } }
+          : {}),
       ...(input.category ? { category: input.category } : {}),
       ...(input.priority ? { priority: input.priority } : {}),
       ...(input.assignedAdminId
@@ -439,18 +467,24 @@ export const prismaTicketService: TicketService = {
     const [tickets, total] = await prisma.$transaction([
       prisma.ticket.findMany({
         where,
-        select: { ...authorTicketSelection, messages: false },
+        select: adminTicketListSelection,
         orderBy: [{ priority: "asc" }, { createdAt: "asc" }, { id: "asc" }],
         skip: (input.page - 1) * input.pageSize,
         take: input.pageSize,
       }),
       prisma.ticket.count({ where }),
     ]);
-    return { tickets: tickets.map(authorTicket), total };
+    return { tickets: tickets.map(adminTicketListItem), total };
   },
   async getAdmin(ticketId) {
     const ticket = await ticketForAdmin(ticketId);
     return ticket ? adminTicket(ticket) : null;
+  },
+  async getTicketAudience(ticketId) {
+    return prisma.ticket.findUnique({
+      where: { id: ticketId },
+      select: { authorId: true, reference: true },
+    });
   },
   async updateStatus(actorUserId, ticketId, status, version) {
     const current = await requiredAdminTicket(ticketId);

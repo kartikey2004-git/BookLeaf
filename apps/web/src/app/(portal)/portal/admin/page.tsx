@@ -1,12 +1,16 @@
 "use client";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
+  ApiClientError,
   apiErrorMessage,
   apiFetch,
   userFacingErrorMessage,
 } from "../../../../lib/api-client";
+import { authClient } from "../../../../lib/auth-client";
 import { usePortalToast } from "../portal-toast";
+
 const statuses = ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"];
 const priorities = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 const categories = [
@@ -17,6 +21,41 @@ const categories = [
   "BOOK_STATUS_AND_PRODUCTION",
   "GENERAL_INQUIRY",
 ];
+const dateRanges = [
+  { value: "any", label: "Any time" },
+  { value: "24h", label: "Last 24 hours" },
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+];
+const pageSize = 20;
+
+type TicketFilters = {
+  status: string;
+  category: string;
+  priority: string;
+  dateRange: string;
+  unresolved: boolean;
+};
+const defaultFilters: TicketFilters = {
+  status: "",
+  category: "",
+  priority: "",
+  dateRange: "any",
+  unresolved: true,
+};
+
+function createdFromFor(range: string): string | undefined {
+  if (range === "any") return undefined;
+  const now = Date.now();
+  const day = 86_400_000;
+  const offset = range === "24h" ? day : range === "7d" ? 7 * day : 30 * day;
+  return new Date(now - offset).toISOString();
+}
+
+function badgeClass(value: string): string {
+  return `portal-badge portal-badge--${value.toLowerCase().replaceAll("_", "-")}`;
+}
+
 type Ticket = {
   id: string;
   reference: string;
@@ -35,36 +74,71 @@ type Ticket = {
   }[];
   internalNotes?: { id: string; content: string; admin: { name: string } }[];
   ai?: {
-    suggestedCategory: string | null;
-    suggestedPriority: string | null;
+    suggestedCategory?: string | null;
+    suggestedPriority?: string | null;
     status: string;
-    classificationReasoning: string | null;
-    priorityReasoning: string | null;
+    classificationReasoning?: string | null;
+    priorityReasoning?: string | null;
   };
-  assignedAdmin?: { name: string } | null;
+  assignedAdmin?: { id: string; name: string } | null;
 };
+type QueueResponse = {
+  tickets: Ticket[];
+  pagination: { page: number; pageSize: number; total: number };
+};
+
 export default function AdminPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]),
     [selected, setSelected] = useState<Ticket | null>(null),
-    [filter, setFilter] = useState(""),
+    [filters, setFilters] = useState<TicketFilters>(defaultFilters),
+    [page, setPage] = useState(1),
+    [total, setTotal] = useState(0),
     [draft, setDraft] = useState(""),
+    [draftError, setDraftError] = useState<string | null>(null),
+    [replyDraft, setReplyDraft] = useState(""),
     [pendingActions, setPendingActions] = useState<Set<string>>(new Set());
+  const { data: session } = authClient.useSession();
+  const currentUserId = (session?.user as { id?: string } | undefined)?.id;
   const { notify } = usePortalToast();
   const listRequest = useRef(0);
   const selectionRequest = useRef(0);
   const draftRequest = useRef<AbortController | null>(null);
-  const load = async (signal?: AbortSignal) => {
+  const replyRef = useRef<HTMLTextAreaElement>(null);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  const load = async (
+    requestFilters: TicketFilters,
+    requestPage: number,
+    signal?: AbortSignal,
+  ) => {
     const request = ++listRequest.current;
-    const suffix = filter ? `?status=${filter}` : "";
-    const response = await apiFetch<{ tickets: Ticket[] }>(
-      `/api/v1/admin/tickets${suffix}`,
+    const params = new URLSearchParams({
+      page: String(requestPage),
+      pageSize: String(pageSize),
+    });
+    if (requestFilters.status) params.set("status", requestFilters.status);
+    else if (requestFilters.unresolved) params.set("unresolved", "true");
+    if (requestFilters.category)
+      params.set("category", requestFilters.category);
+    if (requestFilters.priority)
+      params.set("priority", requestFilters.priority);
+    const createdFrom = createdFromFor(requestFilters.dateRange);
+    if (createdFrom) params.set("createdFrom", createdFrom);
+    const response = await apiFetch<QueueResponse>(
+      `/api/v1/admin/tickets?${params.toString()}`,
       signal ? { signal } : undefined,
     );
-    if (request === listRequest.current) setTickets(response.tickets);
+    if (request === listRequest.current) {
+      setTickets(response.tickets);
+      setTotal(response.pagination?.total ?? response.tickets.length);
+    }
   };
+
   useEffect(() => {
+    // `load` reads latest filters/page via closure; reruns when they change.
     const controller = new AbortController();
-    load(controller.signal).catch((cause: unknown) => {
+    load(filters, page, controller.signal).catch((cause: unknown) => {
       if (!controller.signal.aborted) {
         notify(
           "error",
@@ -73,12 +147,20 @@ export default function AdminPage() {
       }
     });
     return () => controller.abort();
-  }, [filter, notify]);
+  }, [filters, page, notify]);
+
   useEffect(() => () => draftRequest.current?.abort(), []);
+
+  function updateFilters(next: Partial<TicketFilters>) {
+    setFilters((current) => ({ ...current, ...next }));
+    setPage(1);
+  }
+
   async function select(id: string) {
     const request = ++selectionRequest.current;
     draftRequest.current?.abort();
     draftRequest.current = null;
+    setDraftError(null);
     try {
       const response = await apiFetch<{ ticket: Ticket }>(
         `/api/v1/admin/tickets/${id}`,
@@ -86,6 +168,8 @@ export default function AdminPage() {
       if (request === selectionRequest.current) {
         setSelected(response.ticket);
         setDraft("");
+        setDraftError(null);
+        setReplyDraft("");
       }
     } catch (cause) {
       if (request === selectionRequest.current) {
@@ -96,7 +180,9 @@ export default function AdminPage() {
       }
     }
   }
+
   const isPending = (action: string) => pendingActions.has(action);
+
   async function runAction(action: string, operation: () => Promise<void>) {
     setPendingActions((current) => new Set(current).add(action));
     try {
@@ -109,6 +195,7 @@ export default function AdminPage() {
       });
     }
   }
+
   async function mutate(path: string, body: unknown) {
     if (!selected) return;
     const ticket = selected;
@@ -126,15 +213,19 @@ export default function AdminPage() {
         if (selection === selectionRequest.current)
           setSelected(response.ticket);
         notify("success", "Ticket updated.");
-        await load();
+        await load(filters, page);
       } catch (cause) {
+        const isConflict =
+          cause instanceof ApiClientError && cause.status === 409;
         notify(
           "error",
           userFacingErrorMessage(cause, "Could not update this ticket."),
         );
+        if (isConflict) await select(ticket.id);
       }
     });
   }
+
   async function post(path: string, body: unknown, form: HTMLFormElement) {
     if (!selected) return;
     const ticket = selected;
@@ -156,6 +247,32 @@ export default function AdminPage() {
       }
     });
   }
+
+  async function sendPublicReply(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selected) return;
+    const content = replyDraft.trim();
+    if (!content) return;
+    const ticket = selected;
+    await runAction("post:messages", async () => {
+      try {
+        await apiFetch(`/api/v1/admin/tickets/${ticket.id}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content }),
+        });
+        setReplyDraft("");
+        await select(ticket.id);
+        notify("success", "Reply sent to the author.");
+      } catch (cause) {
+        notify(
+          "error",
+          userFacingErrorMessage(cause, "Could not send your reply."),
+        );
+      }
+    });
+  }
+
   async function getDraft() {
     if (!selected) return;
     const ticket = selected;
@@ -164,6 +281,7 @@ export default function AdminPage() {
     draftRequest.current?.abort();
     draftRequest.current = controller;
     setDraft("");
+    setDraftError(null);
     await runAction("ai-draft", async () => {
       try {
         const response = await fetch(
@@ -177,8 +295,7 @@ export default function AdminPage() {
         );
         if (!response.ok) {
           const body = (await response.json().catch(() => undefined)) as
-            | { error?: { code?: string } }
-            | undefined;
+            { error?: { code?: string } } | undefined;
           throw new Error(apiErrorMessage(response.status, body?.error?.code));
         }
         if (!response.body) throw new Error("Draft stream was unavailable.");
@@ -212,6 +329,7 @@ export default function AdminPage() {
           } else if (eventName === "done") {
             if (typeof data.draft === "string") setDraft(data.draft);
             completed = true;
+            setDraftError(null);
             notify("success", "AI draft ready for review.");
           } else if (eventName === "error") {
             throw new Error(apiErrorMessage(503));
@@ -236,6 +354,9 @@ export default function AdminPage() {
           !controller.signal.aborted &&
           selection === selectionRequest.current
         ) {
+          setDraftError(
+            "The AI drafting service didn’t respond. You can write the reply manually — everything below still works.",
+          );
           notify(
             "error",
             userFacingErrorMessage(
@@ -250,6 +371,48 @@ export default function AdminPage() {
       }
     });
   }
+
+  async function assignToMe() {
+    if (!selected || !currentUserId) return;
+    await mutate("assignment", {
+      assignedAdminId: currentUserId,
+      version: selected.version,
+    });
+  }
+
+  async function unassign() {
+    if (!selected) return;
+    await mutate("assignment", {
+      assignedAdminId: null,
+      version: selected.version,
+    });
+  }
+
+  function useDraftAsReply() {
+    setReplyDraft(draft);
+    const field = replyRef.current;
+    if (!field) return;
+    field.focus();
+    field.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  const hasActiveFilter =
+    filters.status !== "" ||
+    filters.category !== "" ||
+    filters.priority !== "" ||
+    filters.dateRange !== "any";
+  const noUnresolvedTickets =
+    tickets.length === 0 &&
+    !hasActiveFilter &&
+    filters.unresolved &&
+    total === 0;
+  const assignedToMe =
+    selected?.assignedAdmin != null &&
+    currentUserId != null &&
+    selected.assignedAdmin.id === currentUserId;
+  const aiUnavailable =
+    selected?.ai?.status === "FAILED" || draftError !== null;
+
   return (
     <main
       id="main-content"
@@ -261,19 +424,90 @@ export default function AdminPage() {
         <p className="portal-muted">Support workspace</p>
         <h1>Admin ticket queue</h1>
       </header>
-      <label className="portal-admin-filter">
-        <span>Status</span>
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          aria-label="Filter tickets by status"
+
+      <div
+        className="portal-admin-filters"
+        role="group"
+        aria-label="Queue filters"
+      >
+        <label className="portal-admin-filter">
+          <span>Status</span>
+          <select
+            value={filters.status}
+            onChange={(e) => updateFilters({ status: e.target.value })}
+            aria-label="Filter tickets by status"
+          >
+            <option value="">All statuses</option>
+            {statuses.map((s) => (
+              <option key={s} value={s}>
+                {s.replaceAll("_", " ")}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="portal-admin-filter">
+          <span>Category</span>
+          <select
+            value={filters.category}
+            onChange={(e) => updateFilters({ category: e.target.value })}
+            aria-label="Filter tickets by category"
+          >
+            <option value="">All categories</option>
+            {categories.map((s) => (
+              <option key={s} value={s}>
+                {s.replaceAll("_", " ")}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="portal-admin-filter">
+          <span>Priority</span>
+          <select
+            value={filters.priority}
+            onChange={(e) => updateFilters({ priority: e.target.value })}
+            aria-label="Filter tickets by priority"
+          >
+            <option value="">All priorities</option>
+            {priorities.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="portal-admin-filter">
+          <span>Date</span>
+          <select
+            value={filters.dateRange}
+            onChange={(e) => updateFilters({ dateRange: e.target.value })}
+            aria-label="Filter tickets by creation date"
+          >
+            {dateRanges.map((range) => (
+              <option key={range.value} value={range.value}>
+                {range.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label
+          className="portal-admin-filter portal-admin-filter--check"
+          title={
+            filters.status
+              ? "A specific status is selected, so this filter is ignored."
+              : "Only show tickets that still need attention"
+          }
         >
-          <option value="">All statuses</option>
-          {statuses.map((s) => (
-            <option key={s}>{s}</option>
-          ))}
-        </select>
-      </label>
+          <input
+            type="checkbox"
+            checked={filters.unresolved}
+            disabled={filters.status !== ""}
+            onChange={(e) => updateFilters({ unresolved: e.target.checked })}
+          />
+          <span>Unresolved only</span>
+        </label>
+        <p className="portal-admin-sort-hint">Most urgent and oldest first</p>
+      </div>
+
       <section className="portal-admin-queue">
         {tickets.length ? (
           <div className="portal-admin-table-wrap">
@@ -284,6 +518,7 @@ export default function AdminPage() {
                   <th scope="col">Status</th>
                   <th scope="col">Priority</th>
                   <th scope="col">Category</th>
+                  <th scope="col">Assigned</th>
                 </tr>
               </thead>
               <tbody>
@@ -293,18 +528,39 @@ export default function AdminPage() {
                       <button type="button" onClick={() => void select(t.id)}>
                         <span className="portal-admin-reference">
                           {t.reference}
+                          {t.ai?.status === "FAILED" ? (
+                            <span
+                              className="portal-badge portal-badge--critical portal-ai-flag"
+                              title="AI triage failed — classify this ticket manually"
+                            >
+                              AI failed
+                            </span>
+                          ) : null}
                         </span>
-                        <span className="portal-admin-subject">{t.subject}</span>
+                        <span className="portal-admin-subject">
+                          {t.subject}
+                        </span>
                       </button>
                     </td>
-                    <td data-label="Status">{t.status.replaceAll("_", " ")}</td>
+                    <td data-label="Status">
+                      <span className={badgeClass(t.status)}>
+                        {t.status.replaceAll("_", " ")}
+                      </span>
+                    </td>
                     <td data-label="Priority">
-                      <span className="portal-badge">
-                        {t.priority.replaceAll("_", " ")}
+                      <span className={badgeClass(t.priority)}>
+                        {t.priority}
                       </span>
                     </td>
                     <td data-label="Category">
                       {t.category.replaceAll("_", " ")}
+                    </td>
+                    <td data-label="Assigned">
+                      {t.assignedAdmin ? (
+                        t.assignedAdmin.name
+                      ) : (
+                        <span className="portal-muted-cell">Unassigned</span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -313,9 +569,41 @@ export default function AdminPage() {
           </div>
         ) : (
           <p className="portal-card portal-admin-empty">
-            No tickets match these filters.
+            {noUnresolvedTickets
+              ? "All caught up — no unresolved tickets right now."
+              : "No tickets match these filters."}
           </p>
         )}
+        {total > pageSize ? (
+          <nav
+            className="portal-pagination"
+            aria-label="Ticket queue pagination"
+          >
+            <span>
+              Page {page} of {totalPages} · {total} tickets
+            </span>
+            <span className="portal-pagination-controls">
+              <button
+                type="button"
+                className="portal-pagination-button"
+                disabled={page <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                <ChevronLeft aria-hidden="true" /> Previous
+              </button>
+              <button
+                type="button"
+                className="portal-pagination-button"
+                disabled={page >= totalPages}
+                onClick={() =>
+                  setPage((current) => Math.min(totalPages, current + 1))
+                }
+              >
+                Next <ChevronRight aria-hidden="true" />
+              </button>
+            </span>
+          </nav>
+        ) : null}
       </section>
       {selected ? (
         <section className="portal-section portal-detail portal-admin-detail">
@@ -337,46 +625,55 @@ export default function AdminPage() {
                 <p>{m.content}</p>
               </article>
             ))}
-            <form
-              className="portal-form"
-              onSubmit={(e: FormEvent<HTMLFormElement>) => {
-                e.preventDefault();
-                const form = e.currentTarget;
-                const f = new FormData(form);
-                void post("messages", { content: String(f.get("content")) }, form);
-              }}
-            >
+            <form className="portal-form" onSubmit={sendPublicReply}>
               <label>
                 Public reply
-                <textarea name="content" required />
+                <textarea
+                  ref={replyRef}
+                  name="content"
+                  maxLength={10_000}
+                  value={replyDraft}
+                  onChange={(event) => setReplyDraft(event.target.value)}
+                  required
+                />
               </label>
               <button
                 className="portal-button"
-                disabled={isPending("post:messages")}
+                disabled={isPending("post:messages") || !replyDraft.trim()}
               >
-                Send public reply
+                {isPending("post:messages") ? "Sending…" : "Send public reply"}
               </button>
             </form>
             <h3>Internal notes</h3>
-            {selected.internalNotes?.map((n) => (
-              <p className="portal-message" key={n.id}>
-                <strong>{n.admin.name}:</strong> {n.content}
+            {selected.internalNotes?.length ? (
+              selected.internalNotes.map((n) => (
+                <p className="portal-message" key={n.id}>
+                  <strong>{n.admin.name}:</strong> {n.content}
+                </p>
+              ))
+            ) : (
+              <p className="portal-muted portal-admin-none">
+                No internal notes yet. Notes are never visible to authors.
               </p>
-            ))}
+            )}
             <form
               className="portal-form"
               onSubmit={(e: FormEvent<HTMLFormElement>) => {
                 e.preventDefault();
                 const form = e.currentTarget;
                 const f = new FormData(form);
-                void post("internal-notes", {
-                  content: String(f.get("content")),
-                }, form);
+                void post(
+                  "internal-notes",
+                  {
+                    content: String(f.get("content")),
+                  },
+                  form,
+                );
               }}
             >
               <label>
                 Internal note
-                <textarea name="content" required />
+                <textarea name="content" maxLength={10_000} required />
               </label>
               <button
                 className="portal-button portal-button--plain"
@@ -404,7 +701,9 @@ export default function AdminPage() {
                 }
               >
                 {statuses.map((s) => (
-                  <option key={s}>{s}</option>
+                  <option key={s} value={s}>
+                    {s.replaceAll("_", " ")}
+                  </option>
                 ))}
               </select>
             </label>
@@ -442,14 +741,63 @@ export default function AdminPage() {
                 ))}
               </select>
             </label>
+
+            <div className="portal-assign-row">
+              <div>
+                <span className="portal-muted">Assigned</span>
+                <p className="portal-assign-value">
+                  {selected.assignedAdmin
+                    ? assignedToMe
+                      ? `You (${selected.assignedAdmin.name})`
+                      : selected.assignedAdmin.name
+                    : "Unassigned"}
+                </p>
+              </div>
+              <div className="portal-assign-actions">
+                <button
+                  className="portal-button portal-button--plain"
+                  type="button"
+                  disabled={
+                    !currentUserId ||
+                    isPending("patch:assignment") ||
+                    assignedToMe
+                  }
+                  onClick={() => void assignToMe()}
+                >
+                  Assign to me
+                </button>
+                {selected.assignedAdmin ? (
+                  <button
+                    className="portal-button portal-button--plain"
+                    type="button"
+                    disabled={isPending("patch:assignment")}
+                    onClick={() => void unassign()}
+                  >
+                    Unassign
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
             <section className="portal-admin-ai" aria-labelledby="ai-title">
               <h3 id="ai-title">AI assistance</h3>
-              <p className="portal-muted">
-                AI status: {selected.ai?.status ?? "PENDING"}
-              </p>
+              {aiUnavailable ? (
+                <div className="portal-ai-fallback" role="alert">
+                  <strong>AI is currently unavailable.</strong>
+                  <span>
+                    {draftError ??
+                      "Automatic triage failed for this ticket. Classify it and draft the reply manually — everything on this page still works without AI."}
+                  </span>
+                </div>
+              ) : (
+                <p className="portal-muted">
+                  AI status: {selected.ai?.status ?? "PENDING"}
+                </p>
+              )}
               <p className="portal-admin-suggestion">
                 Suggested category:{" "}
-                {selected.ai?.suggestedCategory ?? "Awaiting recommendation"}
+                {selected.ai?.suggestedCategory?.replaceAll("_", " ") ??
+                  "Awaiting recommendation"}
               </p>
               <p className="portal-admin-suggestion">
                 Suggested priority:{" "}
@@ -458,7 +806,7 @@ export default function AdminPage() {
               <button
                 className="portal-button"
                 disabled={isPending("ai-draft")}
-                onClick={getDraft}
+                onClick={() => void getDraft()}
               >
                 {isPending("ai-draft") ? (
                   <>
@@ -468,6 +816,8 @@ export default function AdminPage() {
                     />
                     Generating draft…
                   </>
+                ) : draftError || selected.ai?.status === "FAILED" ? (
+                  "Try AI again"
                 ) : (
                   "Generate draft"
                 )}
@@ -482,9 +832,16 @@ export default function AdminPage() {
                     />
                   </label>
                   <p className="portal-muted">
-                    Edit this draft, then copy it into the public reply field.
-                    It is never sent automatically.
+                    AI-assisted draft. Edit it freely — it is never sent
+                    automatically.
                   </p>
+                  <button
+                    type="button"
+                    className="portal-button"
+                    onClick={useDraftAsReply}
+                  >
+                    Use as public reply
+                  </button>
                 </form>
               ) : null}
             </section>

@@ -16,10 +16,11 @@ Better Auth is mounted at `/api/auth/*`. Author routes resolve session user to `
 - `GET /author/tickets?status&page&pageSize`: paginated `{ tickets, pagination }`; list items do not include messages.
 - `GET /author/tickets/:ticketId`: `{ ticket }`, including public messages only.
 - `POST /author/tickets/:ticketId/messages`: body `{ content }`; returns `201 { message }`. Only `OPEN` and `IN_PROGRESS` accept author messages.
+- `GET /author/tickets/stream`: authenticated author-only SSE stream. Emits `connected` on open, then `ticket.updated` whenever the author's ticket changes (`{ ticketId, reference, reason }`; `reason` is one of `ticket-created`, `admin-message`, `author-message`, `status-changed`, `priority-changed`, `category-changed`, `assignment-changed`, `internal-note-added`). Events never carry message bodies or internal note contents. Author clients should refetch the ticket list and any open ticket on each event. Returns `503 EVENT_STREAM_UNAVAILABLE` when the per-user stream cap is reached.
 
 ## Admin endpoints
 
-- `GET /admin/tickets?status&category&priority&assignedAdminId&createdFrom&createdTo&page&pageSize`: paginated queue.
+- `GET /admin/tickets?status&category&priority&assignedAdminId&createdFrom&createdTo&unresolved&page&pageSize`: paginated queue, sorted by priority (`CRITICAL` first) then oldest first. `unresolved=true` restricts to `OPEN` + `IN_PROGRESS` when `status` is not given. List items include `assignedAdmin` (`{ id, name } | null`) and `ai.status`.
 - `GET /admin/tickets/:ticketId`: `{ ticket }`, with author, assignment, internal notes, audit events, and `ai` metadata.
 - `PATCH /admin/tickets/:ticketId/status`: body `{ status, version }`.
 - `PATCH /admin/tickets/:ticketId/priority`: body `{ priority, version }`.
