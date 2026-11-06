@@ -38,7 +38,6 @@ const schema = z
   });
 
 export function getWorkerEnvironment(source: NodeJS.ProcessEnv = process.env) {
-  // Providers such as Cloud Run and Vercel supply PORT for HTTP functions.
   return schema.parse({
     ...source,
     WORKER_PORT: source.WORKER_PORT ?? source.PORT,

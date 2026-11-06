@@ -53,7 +53,7 @@ export function createApp(
     }
     next();
   });
-  // Better Auth must receive its route before JSON parsing and application routes.
+
   if (authHandler) app.all("/api/auth/*splat", authHandler);
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: false, limit: "1mb" }));

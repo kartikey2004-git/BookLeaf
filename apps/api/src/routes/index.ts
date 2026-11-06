@@ -12,8 +12,6 @@ export function createApiRouter(
   const router = Router();
   router.use(createHealthRouter(environment));
   router.use(createDocumentationRouter());
-  // Do not expose the long-lived stream when a verified-session resolver is
-  // unavailable (for example, a minimal health-check application instance).
   if (getSession) router.use(createEventRouter(getSession));
   return router;
 }

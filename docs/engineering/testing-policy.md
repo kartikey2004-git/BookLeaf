@@ -2,7 +2,7 @@
 
 ## Scope
 
-Every workspace must expose `typecheck`, `lint`, and, where executable behavior exists, `test`. API, auth, database, worker, and contract changes require the relevant suite before merge.
+Every workspace must expose `typecheck`, `lint`, and, where executable behavior exists, `test`. API, auth, database, and contract changes require the relevant suite before merge.
 
 ## Test levels
 
@@ -10,7 +10,7 @@ Every workspace must expose `typecheck`, `lint`, and, where executable behavior 
 - API tests exercise Express routes, validation, errors, authorization, rate limits, and response contracts.
 - Integration tests use the disposable PostgreSQL database on `127.0.0.1:55432`; they run migrations and never target an arbitrary database.
 - Authentication integration tests use the real Better Auth node handler, cookies, session retrieval, sign-out, protected routes, and origin checks.
-- Worker integration checks execute the real claim path against PostgreSQL. Inngest delivery is exercised through its served handler in deployment smoke tests.
+- Integration checks execute the real claim path against PostgreSQL. Inngest delivery is exercised through its served handler in deployment smoke tests.
 - End-to-end browser tests are required only when a user-visible cross-service flow changes.
 
 ## Isolation and cleanup
@@ -19,7 +19,7 @@ Use unique test identifiers. The integration runner rejects any database URL oth
 
 ## CI gate
 
-CI runs frozen dependency installation, API and worker typecheck/lint/build, API tests, worker tests, Prisma validation, and the PostgreSQL integration suite. Failures block merge. Coverage thresholds are not set until coverage collection is consistently measured.
+CI runs frozen dependency installation, API typecheck/lint/build, API tests, Prisma validation, and the PostgreSQL integration suite. Failures block merge. Coverage thresholds are not set until coverage collection is consistently measured.
 
 ## Local integration command
 

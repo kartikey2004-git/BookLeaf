@@ -48,9 +48,9 @@ Ticket categories and priorities are fixed enums. An author can only link a tick
 
 ## Gemini AI support
 
-Set `GEMINI_API_KEY` in the repository-root `.env` for local development; the API and worker development commands load that file at startup. Restart them after changing AI settings. In production, configure the key only in the API/worker secret environment where AI runs. `GEMINI_MODEL` defaults to the stable `gemini-3.6-flash`, and `GEMINI_TIMEOUT_MS` defaults to 60000 (60 seconds; configurable up to 120000). The worker receives `bookleaf/ticket.created`, retrieves only relevant canonical knowledge-base sections, and stores AI recommendations separately from administrator category and priority values. It never sends a public reply. `POST /api/v1/admin/tickets/:ticketId/ai-draft` produces a reviewable draft only. Gemini failures are bounded-retried for transient/rate-limit failures; credentials and ticket content are not logged.
+Set `GEMINI_API_KEY` in the repository-root `.env` for local development; the API development commands load that file at startup. Restart after changing AI settings. In production, configure the key only in the API secret environment where AI runs. `GEMINI_MODEL` defaults to the stable `gemini-3.6-flash`, and `GEMINI_TIMEOUT_MS` defaults to 60000 (60 seconds; configurable up to 120000). AI processing runs via Inngest steps connected to `bookleaf/ticket.created`. The API never sends a public reply. `POST /api/v1/admin/tickets/:ticketId/ai-draft` produces a reviewable draft only. Gemini failures are bounded-retried for transient/rate-limit failures; credentials and ticket content are not logged.
 
-The web app uses port 3000, API port 4000, and worker port 4001 by default. OpenAPI JSON is exposed at `/api/v1/openapi.json`; liveness and readiness are `/api/v1/health/live` and `/api/v1/health/ready`.
+The web app uses port 3000, API port 4000 by default. OpenAPI JSON is exposed at `/api/v1/openapi.json`; liveness and readiness are `/api/v1/health/live` and `/api/v1/health/ready`.
 
 ## Verification
 

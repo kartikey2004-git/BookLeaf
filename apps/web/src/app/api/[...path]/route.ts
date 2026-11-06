@@ -59,7 +59,6 @@ async function proxy(
     headers,
     redirect: "manual",
     cache: "no-store",
-    // Abort the upstream SSE/request when the browser disconnects.
     signal: request.signal,
   };
   if (!["GET", "HEAD"].includes(request.method)) {
@@ -79,8 +78,6 @@ async function proxy(
         responseHeaders.append(key, value);
       }
     });
-    // Preserve individual session cookies. Collapsing these headers can make a
-    // browser ignore a Better Auth session or refresh update.
     for (const cookie of upstream.headers.getSetCookie()) {
       responseHeaders.append("set-cookie", cookie);
     }

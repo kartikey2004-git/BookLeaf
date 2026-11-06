@@ -36,7 +36,7 @@ Mutation requests use current integer `version`. A competing write returns `409 
 
 ## AI behavior
 
-Ticket creation returns immediately. `ai.status` starts pending. Gemini recommendations use fixed enums but remain separate from admin-controlled values. Worker never creates public messages or overwrites administrator category or priority. Draft endpoint returns `503 AI_UNAVAILABLE` for missing config or temporary provider failure, and `502 AI_UNAVAILABLE` for provider authentication or invalid structured output.
+Ticket creation returns immediately. `ai.status` starts pending. Gemini recommendations use fixed enums but remain separate from admin-controlled values. AI drafting is handled via Inngest steps: the draft is never sent as a public message or overwrites administrator category or priority. Draft endpoint returns `503 AI_UNAVAILABLE` for missing config or temporary provider failure, and `502 AI_UNAVAILABLE` for provider authentication or invalid structured output.
 
 ## Environment and limits
 

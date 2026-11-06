@@ -20,8 +20,6 @@ RUN npm install --global pnpm@10.23.0 \
  && groupadd --system bookleaf \
  && useradd --system --gid bookleaf --home-dir /app bookleaf
 
-# Workspace packages currently export TypeScript source. Keep the workspace
-# runtime intact and use tsx only as the production TypeScript loader.
 COPY --from=build --chown=bookleaf:bookleaf /app /app
 USER bookleaf
 EXPOSE 8080

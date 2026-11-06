@@ -38,7 +38,6 @@ export type ApiEnvironment = z.infer<typeof environmentSchema>;
 export function getEnvironment(
   source: NodeJS.ProcessEnv = process.env,
 ): ApiEnvironment {
-  // Cloud Run supplies PORT. API_PORT remains available for local development.
   return environmentSchema.parse({
     ...source,
     API_PORT: source.API_PORT ?? source.PORT,

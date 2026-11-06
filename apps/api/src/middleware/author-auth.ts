@@ -18,7 +18,6 @@ export function requestHeaders(request: Request): Headers {
   return headers;
 }
 
-/** Requires a verified Better Auth session without assigning an application role. */
 export function createRequireSession(
   getSession: SessionResolver,
 ): RequestHandler {

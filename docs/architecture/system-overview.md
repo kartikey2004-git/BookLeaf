@@ -28,7 +28,7 @@ The User table has a minimal `AUTHOR` or `ADMIN` role field for future policy ch
 
 ## AI intelligence
 
-The server-only `@repo/ai` package uses Google's official `@google/genai` SDK with configurable Gemini model and timeout. It validates all JSON through Zod, treats ticket text as untrusted input, and includes selected sections from the canonical knowledge base. Ticket-created events invoke the Inngest worker, which writes only `aiSuggested*` fields and processing metadata. A bounded ten-minute recovery sweep picks up `PENDING` or retryable `FAILED` work. The worker uses a conditional database update to claim a ticket once and caps attempts at five. It never updates administrator-owned category or priority fields, so retries cannot overwrite a manual decision. Draft generation is an authenticated admin API action and cannot create a public message.
+The server-only `@repo/ai` package uses Google's official `@google/genai` SDK with configurable Gemini model and timeout. It validates all JSON through Zod, treats ticket text as untrusted input, and includes selected sections from the canonical knowledge base. Ticket-created events invoke Inngest step execution, which writes only `aiSuggested*` fields and processing metadata. A bounded ten-minute recovery sweep picks up `PENDING` or retryable `FAILED` work. Inngest Cloud delivers events, retries, and cron schedules. The function-serving HTTP application is provided by the Next.js app or a dedicated serverless endpoint.
 
 ## Ticket operations
 

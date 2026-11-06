@@ -1,8 +1,6 @@
 const DEFAULT_API_URL = "http://localhost:4000";
 
 function apiBaseUrl(): string {
-  // Browser traffic is routed through the same-origin Next.js proxy so Better
-  // Auth cookies are owned by the Vercel origin and SSE remains authenticated.
   if (typeof window !== "undefined") return "";
   return process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? DEFAULT_API_URL;
 }

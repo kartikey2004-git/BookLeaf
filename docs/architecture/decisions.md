@@ -4,7 +4,7 @@ This record captures the key decisions behind BookLeaf's current application sha
 
 ## AD-001: Keep delivery applications thin
 
-The web, API, and worker applications own transport concerns: routing, request validation, authentication boundaries, and deployment entry points. Shared domain types, configuration, authentication helpers, database access, UI primitives, and AI orchestration live in packages.
+The web and API applications own transport concerns: routing, request validation, authentication boundaries, and deployment entry points. Shared domain types, configuration, authentication helpers, database access, UI primitives, and AI orchestration live in packages.
 
 This keeps cross-application behavior consistent without turning the applications into a single tightly coupled runtime.
 
@@ -22,11 +22,11 @@ One schema keeps relational integrity, migrations, and local development setup i
 
 ## AD-004: Use Inngest for asynchronous AI work
 
-AI generation is represented by durable job records and handled asynchronously by the worker. A scheduler recovers eligible work; each worker claim is atomic, and failed jobs have a bounded retry policy.
+AI generation is handled by the API service via Inngest step execution. Vercel's Next.js endpoint uses Inngest step execution so each ticket's AI processing is bounded by the function runtime. Only one serving endpoint should be registered for a given Inngest environment.
 
 This avoids holding API requests open for model calls and gives operations a durable record of work state.
 
-The function definitions live in `packages/jobs` and can be served either by the standalone worker or by a serverless framework adapter. Vercel's Next.js endpoint uses Inngest step execution so each ticket's AI processing is bounded by the function runtime. Only one serving endpoint should be registered for a given Inngest environment.
+The function definitions live in `packages/jobs` and can be served by a serverless framework adapter. Vercel's Next.js endpoint uses Inngest step execution so each ticket's AI processing is bounded by the function runtime. Only one serving endpoint should be registered for a given Inngest environment.
 
 ## AD-005: Use best-effort SSE without a broker
 

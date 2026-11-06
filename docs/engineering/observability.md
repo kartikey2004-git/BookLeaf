@@ -6,7 +6,7 @@ The repository uses structured JSON logs as its baseline. This avoids adding a t
 
 API logs are Pino JSON records with `service`, `environment`, request ID, method, URL, status, duration, and sanitized error context. Authorization, cookies, and set-cookie headers are redacted.
 
-Worker logs are JSON records with `service`, `environment`, timestamp, event name, ticket ID where applicable, and outcome. Ticket AI completion, failure, and skipped atomic claims are recorded without ticket content or provider credentials.
+API logs are JSON records with `service`, `environment`, timestamp, event name, ticket ID where applicable, and outcome. Ticket AI completion, failure, and skipped atomic claims are recorded without ticket content or provider credentials.
 
 ## Correlation and health
 

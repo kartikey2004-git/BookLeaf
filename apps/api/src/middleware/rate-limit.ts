@@ -9,10 +9,6 @@ type RateLimitOptions = {
 
 type RateLimitEntry = { count: number; resetAt: number };
 
-/**
- * Bounds abuse in a single API process. Deployments with more than one API
- * instance must enforce the same limits at their gateway or shared limiter.
- */
 export function createFixedWindowRateLimit({
   max,
   windowMs,
