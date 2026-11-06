@@ -30,6 +30,8 @@ const environmentSchema = z.object({
     .min(1000)
     .max(120000)
     .default(60000),
+  CLOUDINARY_CLOUD_NAME: optionalNonEmptyString,
+  CLOUDINARY_UPLOAD_PRESET: optionalNonEmptyString,
   READINESS_CHECK_DATABASE: booleanFromString.optional().default(false),
 });
 

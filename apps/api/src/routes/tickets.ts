@@ -24,6 +24,10 @@ import {
 } from "@repo/ai";
 import type { ApiEnvironment } from "../config/env.js";
 import { createInngestClient, publishTicketCreated } from "../lib/inngest.js";
+import {
+  getTicketAttachmentUploadTarget,
+  validateAttachmentFile,
+} from "../lib/cloudinary.js";
 import { createFixedWindowRateLimit } from "../middleware/rate-limit.js";
 import {
   initializeEventStream,
@@ -72,6 +76,26 @@ const categorySchema = versionSchema.extend({
 const assignmentSchema = versionSchema.extend({
   assignedAdminId: z.string().min(1).max(255).nullable(),
 });
+const authorAttachmentSignSchema = z.object({
+  fileName: z.string().trim().min(1).max(255),
+  mimeType: z.string().trim().min(1).max(128),
+  size: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(10 * 1024 * 1024),
+});
+const authorAttachmentInputSchema = z.object({
+  publicId: z.string().min(1).max(255),
+  secureUrl: z.string().url().max(2048),
+  fileName: z.string().trim().min(1).max(255),
+  mimeType: z.string().trim().min(1).max(128),
+  size: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(10 * 1024 * 1024),
+});
 
 async function notifyTicketChanged(
   request: Request,
@@ -82,7 +106,7 @@ async function notifyTicketChanged(
   try {
     const audience = await ticketService.getTicketAudience(ticketId);
     if (audience) {
-      publishAuthorTicketEvent(audience.authorId, {
+      await publishAuthorTicketEvent(audience.authorId, {
         ticketId,
         reference: audience.reference,
         reason,
@@ -116,6 +140,60 @@ export function createTicketRouters(
       windowMs: 60_000,
       key: (request) => `author:${request.authorIdentity!.userId}`,
     }),
+  );
+  author.post(
+    "/author/tickets/attachments/sign",
+    async (request, response, next) => {
+      try {
+        const input = authorAttachmentSignSchema.parse(request.body);
+        const target = getTicketAttachmentUploadTarget(environment);
+        if (!target) {
+          throw new HttpError(
+            503,
+            "ATTACHMENT_STORAGE_UNAVAILABLE",
+            "Ticket attachment storage is not configured",
+          );
+        }
+        validateAttachmentFile(input.fileName, input.mimeType, input.size);
+        response.json({
+          uploadUrl: target.uploadUrl,
+          uploadPreset: target.uploadPreset,
+          cloudName: target.cloudName,
+        });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+  author.post(
+    "/author/tickets/:ticketId/attachments",
+    async (request, response, next) => {
+      try {
+        const { ticketId } = ticketIdSchema.parse(request.params);
+        const input = authorAttachmentInputSchema.parse(request.body);
+        const attachment = await ticketService.addAttachment(
+          request.authorIdentity!.id,
+          request.authorIdentity!.userId,
+          ticketId,
+          {
+            fileName: input.fileName,
+            mimeType: input.mimeType,
+            size: input.size,
+            cloudinaryPublicId: input.publicId,
+            secureUrl: input.secureUrl,
+          },
+        );
+        await notifyTicketChanged(
+          request,
+          ticketService,
+          ticketId,
+          "attachment-added",
+        );
+        response.status(201).json({ attachment });
+      } catch (error) {
+        next(error);
+      }
+    },
   );
   author.post("/author/tickets", async (request, response, next) => {
     try {
@@ -157,7 +235,7 @@ export function createTicketRouters(
       next(error);
     }
   });
-  author.get("/author/tickets/stream", (request, response) => {
+  author.get("/author/tickets/stream", async (request, response, next) => {
     const identity = request.authorIdentity!;
     if (!canOpenEventStream(identity.userId)) {
       response.status(503).json({
@@ -169,14 +247,34 @@ export function createTicketRouters(
       });
       return;
     }
-    initializeEventStream(request, response, identity.userId);
-    const unsubscribe = subscribeAuthorTicketEvents(identity.id, response);
-    request.on("close", unsubscribe);
-    writeEvent(response, {
-      id: randomUUID(),
-      event: "connected",
-      data: { ok: true },
-    });
+    const lastEventIdHeader = request.headers["last-event-id"];
+    const rawLastEventId = Array.isArray(lastEventIdHeader)
+      ? lastEventIdHeader[0]
+      : lastEventIdHeader;
+    const parsedLastEventId =
+      rawLastEventId && /^\d+$/.test(rawLastEventId)
+        ? Number(rawLastEventId)
+        : 0;
+    const cleanup = initializeEventStream(request, response, identity.userId);
+    try {
+      const unsubscribe = await subscribeAuthorTicketEvents(
+        identity.id,
+        response,
+        parsedLastEventId,
+      );
+      request.on("close", () => {
+        unsubscribe();
+        cleanup();
+      });
+      writeEvent(response, {
+        id: String(parsedLastEventId),
+        event: "connected",
+        data: { ok: true },
+      });
+    } catch (error) {
+      cleanup();
+      next(error);
+    }
   });
   author.get("/author/tickets/:ticketId", async (request, response, next) => {
     try {

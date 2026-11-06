@@ -1,6 +1,11 @@
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";
-import { footer, product, roadmap, waitlist } from "../_content/landing-content";
+import {
+  footer,
+  product,
+  roadmap,
+  waitlist,
+} from "../_content/landing-content";
 import { HashLink } from "./hash-link";
 import { Logo } from "./header";
 import { LinkButton } from "./primitives";

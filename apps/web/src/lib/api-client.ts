@@ -62,6 +62,18 @@ export function userFacingErrorMessage(
   return fallback;
 }
 
+export function isUnauthorizedError(error: unknown): boolean {
+  return error instanceof ApiClientError && error.status === 401;
+}
+
+export function redirectToSignIn(): void {
+  if (typeof window === "undefined") return;
+  const next = window.location.pathname;
+  const target =
+    next && next !== "/portal" ? `?next=${encodeURIComponent(next)}` : "";
+  window.location.assign(`/sign-in${target}`);
+}
+
 export function signInErrorMessage(message?: string | null): string {
   const normalized = message?.toLowerCase() ?? "";
   if (

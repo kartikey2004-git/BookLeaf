@@ -137,11 +137,7 @@ function normalise(error: unknown): AiProviderError {
   const message =
     error instanceof Error ? error.message : "Gemini request failed";
   if (status === 401 || status === 403)
-    return new AiProviderError(
-      "AUTH",
-      "Gemini authentication failed",
-      status,
-    );
+    return new AiProviderError("AUTH", "Gemini authentication failed", status);
   if (status === 429)
     return new AiProviderError(
       "RATE_LIMIT",
@@ -253,7 +249,10 @@ export async function streamDraft(
     for await (const response of stream) {
       blockedReason ??= response.promptFeedback?.blockReason;
       const chunkFinishReason = response.candidates?.[0]?.finishReason;
-      if (chunkFinishReason && chunkFinishReason !== "FINISH_REASON_UNSPECIFIED")
+      if (
+        chunkFinishReason &&
+        chunkFinishReason !== "FINISH_REASON_UNSPECIFIED"
+      )
         finishReason = chunkFinishReason;
       const text = response.text;
       if (!text) continue;

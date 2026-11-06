@@ -151,6 +151,7 @@ model Ticket {
   messages        TicketMessage[]
   internalNotes   TicketInternalNote[]
   auditEvents     TicketAuditEvent[]
+  attachments     TicketAttachment[]
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -267,4 +268,30 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+model TicketAttachment {
+  id                 String   @id @default(cuid())
+  ticketId           String
+  ticket             Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  uploadedByUserId   String
+  fileName           String
+  mimeType           String
+  size               Int
+  cloudinaryPublicId String   @unique
+  secureUrl          String
+  createdAt          DateTime @default(now())
+
+  @@index([ticketId])
+}
+
+model TicketEvent {
+  id         Int      @id @default(autoincrement())
+  authorId  String
+  ticketId  String
+  reference String
+  reason    String
+  createdAt DateTime @default(now())
+
+  @@index([authorId, createdAt])
 }

@@ -3,7 +3,9 @@ import { auth } from "./index.js";
 
 async function main(): Promise<void> {
   if (process.env.NODE_ENV !== "development") {
-    throw new Error("Admin account provisioning is allowed only in development");
+    throw new Error(
+      "Admin account provisioning is allowed only in development",
+    );
   }
 
   const email = process.argv[2]?.trim().toLowerCase();

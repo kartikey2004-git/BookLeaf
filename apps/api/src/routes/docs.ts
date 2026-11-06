@@ -85,6 +85,70 @@ const openApiDocument = {
         responses: { "200": { description: "Paginated ticket list" } },
       },
     },
+    "/api/v1/author/tickets/attachments/sign": {
+      post: {
+        summary: "Request a Cloudinary upload target for a ticket attachment",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["fileName", "mimeType", "size"],
+                properties: {
+                  fileName: { type: "string" },
+                  mimeType: { type: "string" },
+                  size: { type: "integer" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Cloudinary unsigned upload target" },
+          "400": { description: "Validation failed" },
+          "401": { description: "Unauthenticated" },
+          "413": { description: "Attachment too large" },
+          "503": { description: "Attachment storage unavailable" },
+        },
+      },
+    },
+    "/api/v1/author/tickets/{ticketId}/attachments": {
+      post: {
+        summary: "Persist a confirmed Cloudinary ticket attachment",
+        parameters: [{ name: "ticketId", in: "path", required: true }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: [
+                  "publicId",
+                  "secureUrl",
+                  "fileName",
+                  "mimeType",
+                  "size",
+                ],
+                properties: {
+                  publicId: { type: "string" },
+                  secureUrl: { type: "string" },
+                  fileName: { type: "string" },
+                  mimeType: { type: "string" },
+                  size: { type: "integer" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "Attachment persisted" },
+          "400": { description: "Validation failed" },
+          "401": { description: "Unauthenticated" },
+          "404": { description: "Unavailable ticket" },
+        },
+      },
+    },
     "/api/v1/author/tickets/stream": {
       get: {
         summary:

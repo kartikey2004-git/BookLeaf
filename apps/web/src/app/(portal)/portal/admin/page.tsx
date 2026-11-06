@@ -65,6 +65,8 @@ type Ticket = {
   priority: string;
   category: string;
   version: number;
+  createdAt?: string;
+  updatedAt?: string;
   author?: { name: string; email: string };
   book?: { title: string } | null;
   messages?: {
@@ -73,12 +75,24 @@ type Ticket = {
     sender: { name: string; role: string };
   }[];
   internalNotes?: { id: string; content: string; admin: { name: string } }[];
+  auditEvents?: {
+    id: string;
+    action: string;
+    metadata?: unknown;
+    createdAt: string;
+    actor: { id: string; name: string; role: string };
+  }[];
   ai?: {
     suggestedCategory?: string | null;
     suggestedPriority?: string | null;
     status: string;
+    classificationConfidence?: number | null;
+    priorityConfidence?: number | null;
     classificationReasoning?: string | null;
     priorityReasoning?: string | null;
+    knowledgeSections?: unknown;
+    processedAt?: string | null;
+    error?: string | null;
   };
   assignedAdmin?: { id: string; name: string } | null;
 };
@@ -396,6 +410,20 @@ export default function AdminPage() {
     field.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
+  function applyAiSuggestion() {
+    if (!selected?.ai?.suggestedCategory || !selected.ai?.suggestedPriority) {
+      return;
+    }
+    void mutate("category", {
+      category: selected.ai.suggestedCategory,
+      version: selected.version,
+    });
+    void mutate("priority", {
+      priority: selected.ai.suggestedPriority,
+      version: selected.version,
+    });
+  }
+
   const hasActiveFilter =
     filters.status !== "" ||
     filters.category !== "" ||
@@ -618,6 +646,17 @@ export default function AdminPage() {
               <strong>Book:</strong>{" "}
               {selected.book?.title ?? "General question"}
             </p>
+            <p className="portal-admin-context">
+              <strong>Created:</strong>{" "}
+              {selected.createdAt
+                ? new Date(selected.createdAt).toLocaleString()
+                : "—"}
+              {" · "}
+              <strong>Updated:</strong>{" "}
+              {selected.updatedAt
+                ? new Date(selected.updatedAt).toLocaleString()
+                : "—"}
+            </p>
             <h3>Conversation</h3>
             {selected.messages?.map((m) => (
               <article className="portal-message" key={m.id}>
@@ -682,6 +721,31 @@ export default function AdminPage() {
                 Add internal note
               </button>
             </form>
+            <h3>Activity</h3>
+            {selected.auditEvents?.length ? (
+              <ul className="portal-admin-audit">
+                {selected.auditEvents.map((event) => (
+                  <li key={event.id}>
+                    <strong>{event.action.replaceAll("_", " ")}</strong>
+                    <span className="portal-muted">
+                      {" "}
+                      · {event.actor.name} ·{" "}
+                      {new Date(event.createdAt).toLocaleString()}
+                    </span>
+                    {event.metadata ? (
+                      <pre className="portal-admin-audit-metadata">
+                        {JSON.stringify(event.metadata)}
+                      </pre>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="portal-muted">
+                No activity recorded yet. Status, priority, assignment and
+                message events will appear here.
+              </p>
+            )}
           </article>
           <aside
             className="portal-card portal-admin-controls"
@@ -803,6 +867,50 @@ export default function AdminPage() {
                 Suggested priority:{" "}
                 {selected.ai?.suggestedPriority ?? "Awaiting recommendation"}
               </p>
+              {selected.ai ? (
+                <>
+                  {selected.ai.classificationConfidence != null ? (
+                    <p className="portal-muted">
+                      Classification confidence:{" "}
+                      {Math.round(selected.ai.classificationConfidence * 100)}%
+                    </p>
+                  ) : null}
+                  {selected.ai.classificationReasoning ? (
+                    <p className="portal-muted">
+                      Classification reasoning:{" "}
+                      {selected.ai.classificationReasoning}
+                    </p>
+                  ) : null}
+                  {selected.ai.priorityConfidence != null ? (
+                    <p className="portal-muted">
+                      Priority confidence:{" "}
+                      {Math.round(selected.ai.priorityConfidence * 100)}%
+                    </p>
+                  ) : null}
+                  {selected.ai.priorityReasoning ? (
+                    <p className="portal-muted">
+                      Priority reasoning: {selected.ai.priorityReasoning}
+                    </p>
+                  ) : null}
+                  {selected.ai.status === "PENDING" ? (
+                    <p className="portal-muted">
+                      Triage is running automatically; recommendations appear
+                      here once the AI finishes.
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
+              {selected.ai?.suggestedCategory &&
+              selected.ai?.suggestedPriority ? (
+                <button
+                  className="portal-button portal-button--plain"
+                  type="button"
+                  disabled={isPending("ai-apply")}
+                  onClick={() => void applyAiSuggestion()}
+                >
+                  Apply AI suggestion
+                </button>
+              ) : null}
               <button
                 className="portal-button"
                 disabled={isPending("ai-draft")}

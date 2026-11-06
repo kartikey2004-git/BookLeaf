@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import { config } from "dotenv";
 import { PrismaClient } from "./generated/prisma/client.js";
 
@@ -16,6 +17,8 @@ if (!databaseUrl) {
 }
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+
+export const eventBusPool = new Pool({ connectionString: databaseUrl });
 
 export const prisma =
   globalForPrisma.prisma ??

@@ -1745,3 +1745,51 @@
   width: 0.9rem;
   height: 0.9rem;
 }
+
+.portal-attachment-status {
+  color: #8a6d1f;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.portal-admin-audit {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 0.55rem;
+  font-size: 0.85rem;
+}
+
+.portal-admin-audit li {
+  margin: 0;
+}
+
+.portal-admin-audit-metadata {
+  margin: 0.35rem 0 0;
+  padding: 0.5rem;
+  background: var(--portal-surface, #ffffff);
+  border: 1px solid var(--portal-line-soft, #eee7dd);
+  border-radius: 0.35rem;
+  font-size: 0.75rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+.portal-books-search {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.portal-books-search input {
+  min-width: min(24rem, 100%);
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--portal-line, #e5ddd0);
+  border-radius: 0.4rem;
+  background: var(--portal-surface, #ffffff);
+  color: var(--portal-ink, #1f1b14);
+  font: inherit;
+}

@@ -2,8 +2,16 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Paperclip, X } from "lucide-react";
-import { apiFetch, userFacingErrorMessage } from "../../../lib/api-client";
+import {
+  apiFetch,
+  isUnauthorizedError,
+  redirectToSignIn,
+  userFacingErrorMessage,
+} from "../../../lib/api-client";
 import { usePortalToast } from "./portal-toast";
+
+const AUTHOR_TICKET_PAGE_SIZE = 20;
+const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
 
 type Overview = {
   totalBooks: number;
@@ -33,13 +41,22 @@ type Ticket = {
   priority: string;
   category: string;
   description: string;
-  createdAt: string;
+  createdAt?: string;
+  updatedAt?: string;
   messages?: {
     id: string;
     content: string;
     sender: { name: string; role: string };
     createdAt: string;
   }[];
+};
+
+type PendingAttachment = {
+  publicId: string;
+  secureUrl: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
 };
 
 export default function PortalHome() {
@@ -53,11 +70,16 @@ export default function PortalHome() {
   const [creating, setCreating] = useState(false);
   const [replying, setReplying] = useState(false);
   const [attachment, setAttachment] = useState<File | null>(null);
+  const [pendingAttachment, setPendingAttachment] =
+    useState<PendingAttachment | null>(null);
+  const [page, setPage] = useState(1);
+  const [ticketsTotal, setTicketsTotal] = useState(0);
   const [liveUpdates, setLiveUpdates] = useState<
     "connecting" | "live" | "paused"
   >("connecting");
   const selectionRequest = useRef(0);
   const selectedTicketIdRef = useRef<string | null>(null);
+  const pageRef = useRef(page);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { notify } = usePortalToast();
 
@@ -68,18 +90,28 @@ export default function PortalHome() {
     Promise.all([
       apiFetch<{ overview: Overview }>("/api/v1/author/overview", options),
       apiFetch<{ books: Book[] }>("/api/v1/author/books?pageSize=50", options),
-      apiFetch<{ tickets: Ticket[] }>(
-        "/api/v1/author/tickets?pageSize=50",
+      apiFetch<{
+        tickets: Ticket[];
+        pagination?: { page: number; pageSize: number; total: number };
+      }>(
+        `/api/v1/author/tickets?page=${pageRef.current}&pageSize=${AUTHOR_TICKET_PAGE_SIZE}`,
         options,
       ),
     ])
-      .then(([overviewResponse, booksResponse, ticketsResponse]) => {
+      .then(async ([overviewResponse, booksResponse, ticketsResponse]) => {
         setOverview(overviewResponse.overview);
         setBooks(booksResponse.books);
         setTickets(ticketsResponse.tickets);
+        setTicketsTotal(
+          ticketsResponse.pagination?.total ?? ticketsResponse.tickets.length,
+        );
       })
       .catch((cause: unknown) => {
         if (!controller.signal.aborted) {
+          if (isUnauthorizedError(cause)) {
+            redirectToSignIn();
+            return;
+          }
           notify(
             "error",
             userFacingErrorMessage(cause, "Could not load your portal."),
@@ -101,14 +133,22 @@ export default function PortalHome() {
   }, [selectedTicketId]);
 
   useEffect(() => {
+    pageRef.current = page;
+  }, [page]);
+
+  useEffect(() => {
     const source = new EventSource("/api/v1/author/tickets/stream");
     const sync = () => {
       void (async () => {
         try {
-          const list = await apiFetch<{ tickets: Ticket[] }>(
-            "/api/v1/author/tickets?pageSize=50",
+          const list = await apiFetch<{
+            tickets: Ticket[];
+            pagination?: { page: number; pageSize: number; total: number };
+          }>(
+            `/api/v1/author/tickets?page=${pageRef.current}&pageSize=${AUTHOR_TICKET_PAGE_SIZE}`,
           );
           setTickets(list.tickets);
+          setTicketsTotal(list.pagination?.total ?? list.tickets.length);
           const openId = selectedTicketIdRef.current;
           if (openId) {
             try {
@@ -137,15 +177,64 @@ export default function PortalHome() {
   }, []);
 
   async function refreshTickets() {
-    const response = await apiFetch<{ tickets: Ticket[] }>(
-      "/api/v1/author/tickets?pageSize=50",
+    const response = await apiFetch<{
+      tickets: Ticket[];
+      pagination?: { page: number; pageSize: number; total: number };
+    }>(
+      `/api/v1/author/tickets?page=${pageRef.current}&pageSize=${AUTHOR_TICKET_PAGE_SIZE}`,
     );
     setTickets(response.tickets);
+    setTicketsTotal(response.pagination?.total ?? response.tickets.length);
   }
 
   function clearAttachment() {
     setAttachment(null);
+    setPendingAttachment(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function uploadAttachment(
+    file: File,
+  ): Promise<PendingAttachment | null> {
+    try {
+      const target = await apiFetch<{
+        uploadUrl: string;
+        uploadPreset: string;
+        cloudName: string;
+      }>("/api/v1/author/tickets/attachments/sign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          mimeType: file.type,
+          size: file.size,
+        }),
+      });
+      const form = new FormData();
+      form.append("file", file);
+      form.append("upload_preset", target.uploadPreset);
+      const uploadResponse = await fetch(target.uploadUrl, {
+        method: "POST",
+        body: form,
+      });
+      if (!uploadResponse.ok) return null;
+      const uploaded = (await uploadResponse.json()) as {
+        publicId?: string;
+        secureUrl?: string;
+      };
+      if (!uploaded.publicId || !uploaded.secureUrl) return null;
+      const created: PendingAttachment = {
+        publicId: uploaded.publicId,
+        secureUrl: uploaded.secureUrl,
+        fileName: file.name,
+        mimeType: file.type,
+        size: file.size,
+      };
+      setPendingAttachment(created);
+      return created;
+    } catch {
+      return null;
+    }
   }
 
   async function selectTicket(ticketId: string) {
@@ -163,6 +252,10 @@ export default function PortalHome() {
       }
     } catch (cause) {
       if (request === selectionRequest.current) {
+        if (isUnauthorizedError(cause)) {
+          redirectToSignIn();
+          return;
+        }
         notify(
           "error",
           userFacingErrorMessage(cause, "Could not load this ticket."),
@@ -189,15 +282,37 @@ export default function PortalHome() {
 
     setCreating(true);
     try {
-      await apiFetch("/api/v1/author/tickets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subject,
-          description,
-          bookId: String(form.get("bookId") || "") || undefined,
-        }),
-      });
+      const created = await apiFetch<{ ticket: Ticket }>(
+        "/api/v1/author/tickets",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subject,
+            description,
+            bookId: String(form.get("bookId") || "") || undefined,
+          }),
+        },
+      );
+      if (attachment) {
+        const uploaded = await uploadAttachment(attachment);
+        if (uploaded) {
+          await apiFetch(
+            `/api/v1/author/tickets/${created.ticket.id}/attachments`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                publicId: uploaded.publicId,
+                secureUrl: uploaded.secureUrl,
+                fileName: uploaded.fileName,
+                mimeType: uploaded.mimeType,
+                size: uploaded.size,
+              }),
+            },
+          );
+        }
+      }
       formElement.reset();
       clearAttachment();
       notify("success", "Ticket created.");
@@ -211,6 +326,10 @@ export default function PortalHome() {
         );
       }
     } catch (cause) {
+      if (isUnauthorizedError(cause)) {
+        redirectToSignIn();
+        return;
+      }
       notify(
         "error",
         userFacingErrorMessage(cause, "Could not create your ticket."),
@@ -250,6 +369,10 @@ export default function PortalHome() {
         notify("error", "Reply sent, but the ticket could not be refreshed.");
       }
     } catch (cause) {
+      if (isUnauthorizedError(cause)) {
+        redirectToSignIn();
+        return;
+      }
       notify(
         "error",
         userFacingErrorMessage(cause, "Could not send your reply."),
@@ -279,6 +402,10 @@ export default function PortalHome() {
           <article className="portal-card">
             <span className="portal-stat">₹{overview.totalRoyaltyEarned}</span>
             <p>Royalty earned</p>
+          </article>
+          <article className="portal-card">
+            <span className="portal-stat">₹{overview.totalRoyaltyPaid}</span>
+            <p>Royalty paid</p>
           </article>
           <article className="portal-card">
             <span className="portal-stat">₹{overview.totalRoyaltyPending}</span>
@@ -351,9 +478,16 @@ export default function PortalHome() {
                   name="attachment"
                   className="portal-attachment-input"
                   accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt,.md"
-                  onChange={(event) =>
-                    setAttachment(event.target.files?.[0] ?? null)
-                  }
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null;
+                    if (file && file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+                      notify("error", "Attachment must be 10 MB or smaller.");
+                      event.target.value = "";
+                      setAttachment(null);
+                      return;
+                    }
+                    setAttachment(file);
+                  }}
                 />
                 <div className="portal-attachment-row">
                   <label
@@ -374,6 +508,11 @@ export default function PortalHome() {
                       <span className="portal-attachment-size">
                         {formatFileSize(attachment.size)}
                       </span>
+                      {pendingAttachment ? (
+                        <span className="portal-attachment-status">
+                          Uploading…
+                        </span>
+                      ) : null}
                       <button
                         type="button"
                         className="portal-attachment-remove"
@@ -447,6 +586,51 @@ export default function PortalHome() {
             ) : (
               <p className="portal-support-empty">No support requests yet.</p>
             )}
+            {ticketsTotal > tickets.length ? (
+              <nav
+                className="portal-pagination"
+                aria-label="Ticket list pagination"
+              >
+                <span>
+                  Page {page} of{" "}
+                  {Math.max(
+                    1,
+                    Math.ceil(ticketsTotal / AUTHOR_TICKET_PAGE_SIZE),
+                  )}{" "}
+                  · {ticketsTotal} tickets
+                </span>
+                <span className="portal-pagination-controls">
+                  <button
+                    type="button"
+                    className="portal-pagination-button"
+                    disabled={page <= 1}
+                    onClick={() =>
+                      setPage((current) => Math.max(1, current - 1))
+                    }
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    className="portal-pagination-button"
+                    disabled={page * AUTHOR_TICKET_PAGE_SIZE >= ticketsTotal}
+                    onClick={() =>
+                      setPage((current) =>
+                        Math.min(
+                          Math.max(
+                            1,
+                            Math.ceil(ticketsTotal / AUTHOR_TICKET_PAGE_SIZE),
+                          ),
+                          current + 1,
+                        ),
+                      )
+                    }
+                  >
+                    Next
+                  </button>
+                </span>
+              </nav>
+            ) : null}
           </section>
         </div>
 
@@ -460,6 +644,12 @@ export default function PortalHome() {
               <div>
                 <p className="portal-muted">{selectedTicket.reference}</p>
                 <h3 id="selected-ticket-title">{selectedTicket.subject}</h3>
+                <p className="portal-muted">
+                  Updated{" "}
+                  {selectedTicket.updatedAt
+                    ? new Date(selectedTicket.updatedAt).toLocaleString()
+                    : "—"}
+                </p>
               </div>
               <span className={badgeClass(selectedTicket.status)}>
                 {selectedTicket.status.replaceAll("_", " ")}

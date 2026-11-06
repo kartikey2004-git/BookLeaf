@@ -13,10 +13,12 @@ Better Auth is mounted at `/api/auth/*`. Author routes resolve session user to `
 - `GET /author/books/:bookId`: `{ book }`; unavailable books return `404`.
 - `GET /author/overview`: `{ overview }`.
 - `POST /author/tickets`: body `{ bookId?, subject, description }`; returns `201 { ticket }`. `bookId` must belong to session author.
+- `POST /author/tickets/attachments/sign`: body `{ fileName, mimeType, size }` (1–10 MB, allowed types); returns `{ uploadUrl, uploadPreset, cloudName }` for an unsigned Cloudinary upload preset. Returns `503 ATTACHMENT_STORAGE_UNAVAILABLE` when storage is not configured. The browser then uploads the file to `uploadUrl` as `multipart/form-data` with `file` + `upload_preset`, and the provider returns `{ publicId, secureUrl }`.
+- `POST /author/tickets/:ticketId/attachments`: body `{ publicId, secureUrl, fileName, mimeType, size }`; persists the stored attachment for the ticket and returns `201 { attachment }`. Author-only; ticket must belong to the session author.
 - `GET /author/tickets?status&page&pageSize`: paginated `{ tickets, pagination }`; list items do not include messages.
 - `GET /author/tickets/:ticketId`: `{ ticket }`, including public messages only.
 - `POST /author/tickets/:ticketId/messages`: body `{ content }`; returns `201 { message }`. Only `OPEN` and `IN_PROGRESS` accept author messages.
-- `GET /author/tickets/stream`: authenticated author-only SSE stream. Emits `connected` on open, then `ticket.updated` whenever the author's ticket changes (`{ ticketId, reference, reason }`; `reason` is one of `ticket-created`, `admin-message`, `author-message`, `status-changed`, `priority-changed`, `category-changed`, `assignment-changed`, `internal-note-added`). Events never carry message bodies or internal note contents. Author clients should refetch the ticket list and any open ticket on each event. Returns `503 EVENT_STREAM_UNAVAILABLE` when the per-user stream cap is reached.
+- `GET /author/tickets/stream`: authenticated author-only SSE stream. Emits `connected` on open, then `ticket.updated` whenever the author's ticket changes (`{ ticketId, reference, reason }`; `reason` is one of `ticket-created`, `admin-message`, `author-message`, `status-changed`, `priority-changed`, `category-changed`, `assignment-changed`, `internal-note-added`, `attachment-added`). Events never carry message bodies or internal note contents. Author clients should refetch the ticket list and any open ticket on each event (resuming from the SSE `Last-Event-ID`). Returns `503 EVENT_STREAM_UNAVAILABLE` when the per-user stream cap is reached.
 
 ## Admin endpoints
 
@@ -42,6 +44,8 @@ Ticket creation returns immediately. `ai.status` starts pending. Gemini recommen
 ## Environment and limits
 
 Required runtime variables: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `BETTER_AUTH_TRUSTED_ORIGINS`. AI needs `GEMINI_API_KEY`; `GEMINI_MODEL` defaults to `gemini-3.6-flash`; `GEMINI_TIMEOUT_MS` defaults to `60000` (60 seconds, configurable up to 120000). Inngest uses `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY` when connected. API keys never reach frontend code.
+
+Ticket attachments use an unsigned Cloudinary upload preset (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_UPLOAD_PRESET`); the API validates type and size before issuing the upload target and persists the confirmed attachment.
 
 OpenAPI endpoint: `GET /api/v1/openapi.json`. This document is frontend contract.
 

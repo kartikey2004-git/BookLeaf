@@ -17,8 +17,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { notify } = usePortalToast();
   const user = session?.user;
-  const isAdmin =
-    (user as { role?: string } | undefined)?.role === "ADMIN";
+  const isAdmin = (user as { role?: string } | undefined)?.role === "ADMIN";
   const userName = user?.name || user?.email || "Account";
   const userInitial = userName.charAt(0).toUpperCase();
 

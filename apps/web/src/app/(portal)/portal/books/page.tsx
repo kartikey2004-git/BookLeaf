@@ -25,6 +25,7 @@ export default function BooksPage() {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [search, setSearch] = useState("");
   const { notify } = usePortalToast();
   const loadBooks = useCallback(
     async (signal?: AbortSignal) => {
@@ -55,6 +56,14 @@ export default function BooksPage() {
     void loadBooks(controller.signal);
     return () => controller.abort();
   }, [loadBooks]);
+  const visibleBooks = books.filter((book) => {
+    const query = search.trim().toLowerCase();
+    if (!query) return true;
+    return (
+      book.title.toLowerCase().includes(query) ||
+      book.isbn.toLowerCase().includes(query)
+    );
+  });
   return (
     <main
       id="main-content"
@@ -65,6 +74,16 @@ export default function BooksPage() {
         <Link href="/portal">Dashboard</Link>
         <h1>My books</h1>
       </header>
+      <label className="portal-books-search">
+        <span>Search books</span>
+        <input
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Title or ISBN"
+          aria-label="Search books by title or ISBN"
+        />
+      </label>
       {loading ? <p role="status">Loading books…</p> : null}
       {loadFailed ? (
         <section className="portal-card portal-empty-state">
@@ -81,7 +100,7 @@ export default function BooksPage() {
           <p>Your publishing catalogue will appear here when available.</p>
         </section>
       ) : null}
-      {!loadFailed && books.length ? (
+      {!loadFailed && visibleBooks.length ? (
         <div className="portal-books-table-wrap">
           <table className="portal-table portal-books-table">
             <thead>
@@ -97,7 +116,7 @@ export default function BooksPage() {
               </tr>
             </thead>
             <tbody>
-              {books.map((book) => {
+              {visibleBooks.map((book) => {
                 const inProduction = isInProduction(book);
                 return (
                   <tr key={book.id}>

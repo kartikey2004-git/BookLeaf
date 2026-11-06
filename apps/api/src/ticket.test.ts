@@ -1,5 +1,5 @@
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createApp,
   type AuthorRouteDependencies,
@@ -8,6 +8,12 @@ import {
 import { HttpError } from "./middleware/errors.js";
 import type { AuthorService } from "./modules/author/service.js";
 import type { TicketService } from "./modules/ticket/service.js";
+
+vi.mock("./lib/ticket-events.js", () => ({
+  TICKET_EVENTS_CHANNEL: "ticket_events",
+  subscribeAuthorTicketEvents: vi.fn(async () => () => undefined),
+  publishAuthorTicketEvent: vi.fn(async () => undefined),
+}));
 
 const ticket = {
   id: "ticket-1",

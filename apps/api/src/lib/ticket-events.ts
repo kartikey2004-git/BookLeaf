@@ -1,4 +1,8 @@
+import type { PoolClient } from "pg";
 import type { Response } from "express";
+import { eventBusPool } from "@repo/database";
+
+export const TICKET_EVENTS_CHANNEL = "ticket_events";
 
 export type TicketChangeReason =
   | "ticket-created"
@@ -8,7 +12,8 @@ export type TicketChangeReason =
   | "priority-changed"
   | "category-changed"
   | "assignment-changed"
-  | "internal-note-added";
+  | "internal-note-added"
+  | "attachment-added";
 
 export type AuthorTicketEvent = {
   ticketId: string;
@@ -16,53 +21,118 @@ export type AuthorTicketEvent = {
   reason: TicketChangeReason;
 };
 
-const MAX_SUBSCRIBERS_PER_AUTHOR = 5;
-const subscribers = new Map<string, Set<Response>>();
+export type TicketStreamSubscription = {
+  authorId: string;
+  response: Response;
+  lastEventId: number;
+  client: PoolClient | null;
+};
 
-export function subscribeAuthorTicketEvents(
-  authorId: string,
+const subscriptionsByAuthor = new Map<string, Set<TicketStreamSubscription>>();
+
+function writeTicketEvent(
   response: Response,
-): () => void {
-  let authorStreams = subscribers.get(authorId);
-  if (!authorStreams) {
-    authorStreams = new Set();
-    subscribers.set(authorId, authorStreams);
-  }
-  if (authorStreams.size >= MAX_SUBSCRIBERS_PER_AUTHOR) {
-    const oldest = authorStreams.values().next().value;
-    if (oldest) {
-      authorStreams.delete(oldest);
-      if (!oldest.destroyed && !oldest.writableEnded) oldest.end();
-    }
-  }
-  authorStreams.add(response);
-  let released = false;
-  return () => {
-    if (released) return;
-    released = true;
-    const current = subscribers.get(authorId);
-    if (!current) return;
-    current.delete(response);
-    if (current.size === 0) subscribers.delete(authorId);
-  };
+  event: AuthorTicketEvent & { id: number },
+): void {
+  if (response.destroyed || response.writableEnded) return;
+  response.write(
+    `id: ${event.id}\nevent: ticket.updated\ndata: ${JSON.stringify({
+      ticketId: event.ticketId,
+      reference: event.reference,
+      reason: event.reason,
+    })}\n\n`,
+  );
 }
 
-export function publishAuthorTicketEvent(
+async function attachListener(
+  subscription: TicketStreamSubscription,
+): Promise<void> {
+  const client = await eventBusPool.connect();
+  subscription.client = client;
+  client.on("notification", (notification) => {
+    if (notification.channel !== TICKET_EVENTS_CHANNEL) return;
+    try {
+      const payload = JSON.parse(
+        notification.payload ?? "{}",
+      ) as AuthorTicketEvent & {
+        id: number;
+      };
+      writeTicketEvent(subscription.response, payload);
+    } catch {}
+  });
+  await client.query(`LISTEN ${TICKET_EVENTS_CHANNEL}`);
+}
+
+async function detachListener(
+  subscription: TicketStreamSubscription,
+): Promise<void> {
+  const client = subscription.client;
+  subscription.client = null;
+  if (!client) return;
+  client.removeAllListeners("notification");
+  try {
+    await client.query(`UNLISTEN ${TICKET_EVENTS_CHANNEL}`);
+  } catch {}
+  client.release();
+}
+
+export async function subscribeAuthorTicketEvents(
+  authorId: string,
+  response: Response,
+  lastEventId: number,
+): Promise<() => void> {
+  const existing = subscriptionsByAuthor.get(authorId);
+  const subscriptions = existing ?? new Set<TicketStreamSubscription>();
+  subscriptionsByAuthor.set(authorId, subscriptions);
+
+  const replay = await eventBusPool.query(
+    `SELECT "id", "ticketId", "reference", "reason" FROM "TicketEvent" WHERE "authorId" = $1 AND "id" > $2 ORDER BY "id" ASC`,
+    [authorId, lastEventId],
+  );
+  for (const row of replay.rows) {
+    writeTicketEvent(response, {
+      id: Number(row.id),
+      ticketId: String(row.ticketId),
+      reference: String(row.reference),
+      reason: String(row.reason) as AuthorTicketEvent["reason"],
+    });
+  }
+
+  const subscription: TicketStreamSubscription = {
+    authorId,
+    response,
+    lastEventId,
+    client: null,
+  };
+  subscriptions.add(subscription);
+  await attachListener(subscription);
+
+  const unsubscribe = async (): Promise<void> => {
+    const current = subscriptionsByAuthor.get(authorId);
+    if (current) {
+      current.delete(subscription);
+      if (current.size === 0) subscriptionsByAuthor.delete(authorId);
+    }
+    await detachListener(subscription);
+  };
+  const done = () => {
+    void unsubscribe();
+  };
+  response.on("close", done);
+  return done;
+}
+
+export async function publishAuthorTicketEvent(
   authorId: string,
   event: AuthorTicketEvent,
-): void {
-  const authorStreams = subscribers.get(authorId);
-  if (!authorStreams || authorStreams.size === 0) return;
-  const frame = `event: ticket.updated\ndata: ${JSON.stringify(event)}\n\n`;
-  for (const response of [...authorStreams]) {
-    if (response.destroyed || response.writableEnded) {
-      authorStreams.delete(response);
-      continue;
-    }
-    try {
-      response.write(frame);
-    } catch {
-      authorStreams.delete(response);
-    }
-  }
+): Promise<void> {
+  const result = await eventBusPool.query(
+    `INSERT INTO "TicketEvent" ("authorId", "ticketId", "reference", "reason") VALUES ($1, $2, $3, $4) RETURNING "id"`,
+    [authorId, event.ticketId, event.reference, event.reason],
+  );
+  const id = Number(result.rows[0].id);
+  const payload = JSON.stringify({ ...event, id });
+  const client = await eventBusPool.connect();
+  await client.query(`NOTIFY ${TICKET_EVENTS_CHANNEL}, '${payload}'`);
+  client.release();
 }

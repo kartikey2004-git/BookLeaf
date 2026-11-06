@@ -328,6 +328,18 @@ export type TicketService = {
     ticketId: string,
     input: MessageInput,
   ): Promise<{ id: string; content: string; createdAt: string }>;
+  addAttachment(
+    authorId: string,
+    actorUserId: string,
+    ticketId: string,
+    input: {
+      fileName: string;
+      mimeType: string;
+      size: number;
+      cloudinaryPublicId: string;
+      secureUrl: string;
+    },
+  ): Promise<{ id: string; createdAt: string }>;
 };
 
 async function ticketForAdmin(ticketId: string) {
@@ -515,6 +527,9 @@ export const prismaTicketService: TicketService = {
                 ? current.resolvedAt
                 : null,
           closedAt: status === "CLOSED" ? now : null,
+          ...(status === "RESOLVED" || status === "CLOSED"
+            ? { assignedAdminId: null }
+            : {}),
         },
       });
       if (updated.count !== 1)
@@ -688,5 +703,27 @@ export const prismaTicketService: TicketService = {
         createdAt: note.createdAt.toISOString(),
       };
     });
+  },
+  async addAttachment(authorId, actorUserId, ticketId, input) {
+    const ticket = await prisma.ticket.findFirst({
+      where: { id: ticketId, authorId },
+      select: { id: true },
+    });
+    if (!ticket) throw new HttpError(404, "NOT_FOUND", "Ticket was not found");
+    const attachment = await prisma.ticketAttachment.create({
+      data: {
+        ticketId,
+        uploadedByUserId: actorUserId,
+        fileName: input.fileName,
+        mimeType: input.mimeType,
+        size: input.size,
+        cloudinaryPublicId: input.cloudinaryPublicId,
+        secureUrl: input.secureUrl,
+      },
+    });
+    return {
+      id: attachment.id,
+      createdAt: attachment.createdAt.toISOString(),
+    };
   },
 };
