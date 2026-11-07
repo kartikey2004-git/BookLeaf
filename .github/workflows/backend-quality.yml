@@ -12,7 +12,7 @@ on:
       - "packages/validation/**"
       - "pnpm-lock.yaml"
   push:
-    branches: [main]
+    branches: [main, master]
 
 permissions:
   contents: read

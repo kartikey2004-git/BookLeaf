@@ -9,7 +9,7 @@ on:
       - "apps/**/package.json"
       - "packages/**/package.json"
   push:
-    branches: [main]
+    branches: [main, master]
 
 permissions:
   contents: read
