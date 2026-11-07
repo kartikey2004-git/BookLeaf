@@ -10,6 +10,7 @@
   "scripts": {
     "provision:demo": "tsx src/provision-demo.ts",
     "provision:admin": "tsx src/provision-admin.ts",
+    "reset:production-passwords": "tsx src/reset-production-passwords.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
