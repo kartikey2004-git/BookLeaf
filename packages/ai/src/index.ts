@@ -25,6 +25,10 @@ export const prioritySchema = z.object({
   reasoning: z.string().min(1).max(500),
   signals: z.array(z.string()).max(5),
 });
+export const triageSchema = z.object({
+  classification: classificationSchema,
+  priority: prioritySchema,
+});
 export const draftSchema = z.object({ draft: z.string().min(1).max(5000) });
 
 const knowledgeBasePath = [
@@ -83,6 +87,11 @@ export const classificationPrompt = (ticket: string) =>
 export const priorityPrompt = (ticket: string) =>
   prompt(
     "Return only JSON with priority, confidence, reasoning, signals. Priorities must be one of: CRITICAL, HIGH, MEDIUM, LOW.",
+    ticket,
+  );
+export const triagePrompt = (ticket: string) =>
+  prompt(
+    "Return only JSON with classification and priority. classification must contain category, confidence, reasoning, sections. priority must contain priority, confidence, reasoning, signals. Categories must be one of: ROYALTY_AND_PAYMENTS, ISBN_AND_METADATA, PRINTING_AND_QUALITY, DISTRIBUTION_AND_AVAILABILITY, BOOK_STATUS_AND_PRODUCTION, GENERAL_INQUIRY. Priorities must be one of: CRITICAL, HIGH, MEDIUM, LOW.",
     ticket,
   );
 export const draftPrompt = (ticket: string) =>
@@ -162,6 +171,13 @@ function normalise(error: unknown): AiProviderError {
 }
 const pause = (milliseconds: number) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
+const MAX_TRANSIENT_ATTEMPTS = 4;
+
+function retryDelay(attempt: number): number {
+  return (
+    Math.min(8_000, 500 * 2 ** attempt) + Math.floor(Math.random() * 250)
+  );
+}
 const clients = new Map<string, GoogleGenAI>();
 
 function clientFor(apiKey: string): GoogleGenAI {
@@ -178,7 +194,7 @@ export async function completeJson<T>(
   schema: z.ZodType<T>,
 ): Promise<T> {
   const ai = clientFor(config.apiKey);
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < MAX_TRANSIENT_ATTEMPTS; attempt += 1) {
     const controller = new AbortController();
     const timeout = setTimeout(
       () => controller.abort(),
@@ -190,6 +206,7 @@ export async function completeJson<T>(
         contents: promptText,
         config: {
           responseMimeType: "application/json",
+          responseJsonSchema: z.toJSONSchema(schema),
           maxOutputTokens: 700,
           abortSignal: controller.signal,
         },
@@ -205,12 +222,11 @@ export async function completeJson<T>(
     } catch (error) {
       const normalized = normalise(error);
       if (
-        (normalized.kind !== "TRANSIENT" && normalized.kind !== "RATE_LIMIT") ||
-        normalized.providerStatus !== undefined ||
-        attempt === 2
+        !["TRANSIENT", "RATE_LIMIT", "TIMEOUT"].includes(normalized.kind) ||
+        attempt === MAX_TRANSIENT_ATTEMPTS - 1
       )
         throw normalized;
-      await pause(250 * 2 ** attempt + Math.floor(Math.random() * 100));
+      await pause(retryDelay(attempt));
     } finally {
       clearTimeout(timeout);
     }

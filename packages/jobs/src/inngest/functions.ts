@@ -1,11 +1,9 @@
 import { prisma } from "@repo/database";
 import {
   AI_PROMPT_VERSION,
-  classificationPrompt,
-  classificationSchema,
   completeJson,
-  priorityPrompt,
-  prioritySchema,
+  triagePrompt,
+  triageSchema,
 } from "@repo/ai";
 import { z } from "zod";
 import { getJobsEnvironment } from "../config/env.js";
@@ -59,20 +57,17 @@ async function processTicket(ticketId: string) {
       model: environment.GEMINI_MODEL,
       timeoutMs: environment.GEMINI_TIMEOUT_MS,
     };
-    const [classification, priority] = await Promise.all([
-      completeJson(config, classificationPrompt(text), classificationSchema),
-      completeJson(config, priorityPrompt(text), prioritySchema),
-    ]);
+    const triage = await completeJson(config, triagePrompt(text), triageSchema);
     await prisma.ticket.update({
       where: { id: ticketId },
       data: {
-        aiSuggestedCategory: classification.category,
-        aiSuggestedPriority: priority.priority,
-        aiClassificationConfidence: classification.confidence,
-        aiPriorityConfidence: priority.confidence,
-        aiClassificationReasoning: classification.reasoning,
-        aiPriorityReasoning: priority.reasoning,
-        aiKnowledgeSections: classification.sections,
+        aiSuggestedCategory: triage.classification.category,
+        aiSuggestedPriority: triage.priority.priority,
+        aiClassificationConfidence: triage.classification.confidence,
+        aiPriorityConfidence: triage.priority.confidence,
+        aiClassificationReasoning: triage.classification.reasoning,
+        aiPriorityReasoning: triage.priority.reasoning,
+        aiKnowledgeSections: triage.classification.sections,
         aiStatus: "COMPLETED",
         aiProvider: "google-gemini",
         aiModel: environment.GEMINI_MODEL,
@@ -100,7 +95,7 @@ async function processTicket(ticketId: string) {
 }
 
 export const processTicketCreated = inngest.createFunction(
-  { id: "process-ticket-ai", retries: 2, concurrency: 5 },
+  { id: "process-ticket-ai", retries: 2, concurrency: 2 },
   { event: "bookleaf/ticket.created" },
   async ({ event, logger, step }) => {
     const { ticketId } = ticketCreatedEventSchema.parse(event.data);

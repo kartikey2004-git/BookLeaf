@@ -26,6 +26,7 @@ export function createApp(
   authHandler?: RequestHandler,
   authorDependencies?: AuthorRouteDependencies,
   ticketDependencies?: TicketRouteDependencies,
+  inngestHandler?: RequestHandler,
 ): Express {
   const app = express();
   const allowedOrigins = new Set(
@@ -55,6 +56,7 @@ export function createApp(
   });
 
   if (authHandler) app.all("/api/auth/*splat", authHandler);
+  if (inngestHandler) app.all("/api/inngest", inngestHandler);
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: false, limit: "1mb" }));
   app.use(

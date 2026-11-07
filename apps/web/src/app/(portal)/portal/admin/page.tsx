@@ -481,8 +481,8 @@ export default function AdminPage() {
     selected?.assignedAdmin != null &&
     currentUserId != null &&
     selected.assignedAdmin.id === currentUserId;
-  const aiUnavailable =
-    selected?.ai?.status === "FAILED" || draftError !== null;
+  const triageFailed = selected?.ai?.status === "FAILED";
+  const aiUnavailable = draftError !== null;
 
   return (
     <main
@@ -919,9 +919,14 @@ export default function AdminPage() {
               {aiUnavailable ? (
                 <div className="portal-ai-fallback" role="alert">
                   <strong>AI is currently unavailable.</strong>
+                  <span>{draftError}</span>
+                </div>
+              ) : triageFailed ? (
+                <div className="portal-ai-fallback" role="status">
+                  <strong>Automatic triage failed for this ticket.</strong>
                   <span>
-                    {draftError ??
-                      "Automatic triage failed for this ticket. Classify it and draft the reply manually — everything on this page still works without AI."}
+                    You can still generate a reply draft or classify the ticket
+                    manually.
                   </span>
                 </div>
               ) : (

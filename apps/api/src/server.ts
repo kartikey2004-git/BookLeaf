@@ -1,7 +1,9 @@
 import { createServer } from "node:http";
 import { auth, getVerifiedSession, trustedOrigins } from "@repo/auth";
 import { prisma } from "@repo/database";
+import { functions, inngest } from "@repo/jobs";
 import { toNodeHandler } from "better-auth/node";
+import { serve } from "inngest/express";
 import { createApp } from "./app.js";
 import { getEnvironment } from "./config/env.js";
 import { prismaAuthorService } from "./modules/author/service.js";
@@ -36,6 +38,7 @@ const server = createServer(
       authorService: prismaAuthorService,
       ticketService: prismaTicketService,
     },
+    serve({ client: inngest, functions }),
   ),
 );
 

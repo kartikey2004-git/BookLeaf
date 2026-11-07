@@ -23,6 +23,8 @@ services:
         value: gemini-3.6-flash
       - key: GEMINI_TIMEOUT_MS
         value: "60000"
+      - key: INNGEST_SERVE_HOST
+        value: https://bookleaf-api-9ez1.onrender.com
       - key: DATABASE_URL
         sync: false
       - key: BETTER_AUTH_SECRET
