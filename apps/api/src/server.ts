@@ -10,6 +10,9 @@ import { prismaAuthorService } from "./modules/author/service.js";
 import { prismaTicketService } from "./modules/ticket/service.js";
 
 const environment = getEnvironment();
+const inngestHandler = environment.INNGEST_SIGNING_KEY
+  ? serve({ client: inngest, functions })
+  : undefined;
 const corsOrigins = (environment.CORS_ORIGINS ?? environment.WEB_ORIGIN)
   .split(",")
   .map((origin) => origin.trim())
@@ -38,7 +41,7 @@ const server = createServer(
       authorService: prismaAuthorService,
       ticketService: prismaTicketService,
     },
-    serve({ client: inngest, functions }),
+    inngestHandler,
   ),
 );
 

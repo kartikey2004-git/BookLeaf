@@ -21,18 +21,6 @@ const schema = z
       .min(1000)
       .max(120000)
       .default(60000),
-  })
-  .superRefine((environment, context) => {
-    if (
-      environment.NODE_ENV === "production" &&
-      !environment.INNGEST_SIGNING_KEY
-    ) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["INNGEST_SIGNING_KEY"],
-        message: "INNGEST_SIGNING_KEY is required in production",
-      });
-    }
   });
 
 export function getJobsEnvironment(source: NodeJS.ProcessEnv = process.env) {
