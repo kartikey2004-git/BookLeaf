@@ -84,7 +84,9 @@ export function getTicketAttachmentUploadTarget(
   const uploadPreset = environment?.CLOUDINARY_UPLOAD_PRESET;
   if (!cloudName || !uploadPreset) return null;
   return {
-    uploadUrl: `https://api.cloudinary.com/v1_1/${cloudName}/upload`,
+    // `auto` is required for the document and text formats accepted by the
+    // portal as well as images. The unqualified endpoint defaults to images.
+    uploadUrl: `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
     uploadPreset,
     cloudName,
   };

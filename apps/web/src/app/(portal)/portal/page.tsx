@@ -240,11 +240,17 @@ export default function PortalHome() {
       const uploaded = (await uploadResponse.json()) as {
         publicId?: string;
         secureUrl?: string;
+        public_id?: string;
+        secure_url?: string;
       };
-      if (!uploaded.publicId || !uploaded.secureUrl) return null;
+      // MinIO returns our camelCase shape. Cloudinary's Upload API returns
+      // snake_case field names, so support both storage providers.
+      const publicId = uploaded.publicId ?? uploaded.public_id;
+      const secureUrl = uploaded.secureUrl ?? uploaded.secure_url;
+      if (!publicId || !secureUrl) return null;
       const created: PendingAttachment = {
-        publicId: uploaded.publicId,
-        secureUrl: uploaded.secureUrl,
+        publicId,
+        secureUrl,
         fileName: file.name,
         mimeType: file.type,
         size: file.size,
@@ -315,21 +321,37 @@ export default function PortalHome() {
       );
       if (attachment) {
         const uploaded = await uploadAttachment(attachment);
-        if (uploaded) {
-          await apiFetch(
-            `/api/v1/author/tickets/${created.ticket.id}/attachments`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                publicId: uploaded.publicId,
-                secureUrl: uploaded.secureUrl,
-                fileName: uploaded.fileName,
-                mimeType: uploaded.mimeType,
-                size: uploaded.size,
-              }),
-            },
+        if (!uploaded) {
+          notify(
+            "error",
+            "Ticket created, but the attachment could not be uploaded. Please try attaching it again.",
           );
+        } else {
+          try {
+            await apiFetch(
+              `/api/v1/author/tickets/${created.ticket.id}/attachments`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  publicId: uploaded.publicId,
+                  secureUrl: uploaded.secureUrl,
+                  fileName: uploaded.fileName,
+                  mimeType: uploaded.mimeType,
+                  size: uploaded.size,
+                }),
+              },
+            );
+          } catch (cause) {
+            if (isUnauthorizedError(cause)) {
+              redirectToSignIn();
+              return;
+            }
+            notify(
+              "error",
+              "Ticket created, but the attachment could not be saved. Please try attaching it again.",
+            );
+          }
         }
       }
       formElement.reset();
