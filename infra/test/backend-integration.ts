@@ -110,9 +110,23 @@ test("Better Auth, PostgreSQL transactions, and AI claim races use real local in
       description: "Testing transaction integrity.",
     },
   });
+  const { version: ticketVersion } = await prisma.ticket.findUniqueOrThrow({
+    where: { id: ticket.id },
+    select: { version: true },
+  });
   const updates = await Promise.allSettled([
-    prismaTicketService.updatePriority(admin.id, ticket.id, "HIGH", 0),
-    prismaTicketService.updatePriority(admin.id, ticket.id, "LOW", 0),
+    prismaTicketService.updatePriority(
+      admin.id,
+      ticket.id,
+      "HIGH",
+      ticketVersion,
+    ),
+    prismaTicketService.updatePriority(
+      admin.id,
+      ticket.id,
+      "LOW",
+      ticketVersion,
+    ),
   ]);
   assert.equal(
     updates.filter((result) => result.status === "fulfilled").length,
