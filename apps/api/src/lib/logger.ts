@@ -11,6 +11,16 @@ export function createLogger(
     redact: [
       "req.headers.authorization",
       "req.headers.cookie",
+      "req.headers.forwarded",
+      "req.headers.cf-connecting-ip",
+      "req.headers.true-client-ip",
+      "req.headers.x-forwarded-for",
+      "req.headers.x-vercel-forwarded-for",
+      "req.headers.x-vercel-oidc-token",
+      "req.headers.x-vercel-proxy-signature",
+      "req.headers.x-vercel-proxy-signature-ts",
+      "req.headers.x-vercel-proxied-for",
+      "req.headers.x-vercel-sc-headers",
       "res.headers.set-cookie",
     ],
     customSuccessMessage: (_request, response, _responseTime) =>

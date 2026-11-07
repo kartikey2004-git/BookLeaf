@@ -26,6 +26,7 @@ import type { ApiEnvironment } from "../config/env.js";
 import { createInngestClient, publishTicketCreated } from "../lib/inngest.js";
 import {
   createMinioObjectKey,
+  CloudinaryUploadError,
   getMinioAttachmentStorage,
   getTicketAttachmentUploadTarget,
   uploadToCloudinary,
@@ -173,6 +174,12 @@ export function createTicketRouters(
           uploadUrl: "/api/v1/author/tickets/attachments/upload",
         });
       } catch (error) {
+        if (error instanceof CloudinaryUploadError) {
+          request.log?.error(
+            { requestId: request.requestId, cloudinary: error.cloudinary },
+            "Cloudinary attachment upload rejected",
+          );
+        }
         next(error);
       }
     },

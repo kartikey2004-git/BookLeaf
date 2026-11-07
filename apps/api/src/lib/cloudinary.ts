@@ -21,6 +21,21 @@ export type CloudinaryUploadTarget = {
   cloudName: string;
 };
 
+export type CloudinaryUploadFailure = {
+  status: number;
+  message?: string;
+};
+
+/**
+ * An upload failure that carries the provider's safe diagnostic for server
+ * logs. It deliberately keeps that diagnostic out of the API response.
+ */
+export class CloudinaryUploadError extends HttpError {
+  public constructor(public readonly cloudinary: CloudinaryUploadFailure) {
+    super(502, "ATTACHMENT_UPLOAD_FAILED", "Cloudinary rejected the attachment upload");
+  }
+}
+
 type CloudinaryUploadResult = {
   publicId: string;
   secureUrl: string;
@@ -124,11 +139,13 @@ export async function uploadToCloudinary(
 
   const payload: unknown = await response.json().catch(() => null);
   if (!response.ok || !payload || typeof payload !== "object") {
-    throw new HttpError(
-      502,
-      "ATTACHMENT_UPLOAD_FAILED",
-      "Cloudinary rejected the attachment upload",
-    );
+    const providerError = (payload as { error?: { message?: unknown } } | null)
+      ?.error;
+    const message =
+      typeof providerError?.message === "string"
+        ? providerError.message.slice(0, 500)
+        : undefined;
+    throw new CloudinaryUploadError({ status: response.status, message });
   }
 
   const uploaded = payload as { public_id?: unknown; secure_url?: unknown };
