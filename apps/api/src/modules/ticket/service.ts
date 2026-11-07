@@ -556,12 +556,6 @@ export const prismaTicketService: TicketService = {
       );
     }
     const now = new Date();
-    if (current.version !== version)
-      throw new HttpError(
-        409,
-        "TICKET_VERSION_CONFLICT",
-        "Ticket was changed by another administrator",
-      );
     await prisma.$transaction(async (tx) => {
       const updated = await tx.ticket.updateMany({
         where: { id: ticketId, version },
@@ -599,12 +593,6 @@ export const prismaTicketService: TicketService = {
   },
   async updatePriority(actorUserId, ticketId, priority, version) {
     const current = await requiredAdminTicket(ticketId);
-    if (current.version !== version)
-      throw new HttpError(
-        409,
-        "TICKET_VERSION_CONFLICT",
-        "Ticket was changed by another administrator",
-      );
     await prisma.$transaction(async (tx) => {
       const updated = await tx.ticket.updateMany({
         where: { id: ticketId, version },
@@ -633,12 +621,6 @@ export const prismaTicketService: TicketService = {
   },
   async updateCategory(actorUserId, ticketId, category, version) {
     const current = await requiredAdminTicket(ticketId);
-    if (current.version !== version)
-      throw new HttpError(
-        409,
-        "TICKET_VERSION_CONFLICT",
-        "Ticket was changed by another administrator",
-      );
     await prisma.$transaction(async (tx) => {
       const updated = await tx.ticket.updateMany({
         where: { id: ticketId, version },
@@ -679,12 +661,6 @@ export const prismaTicketService: TicketService = {
           "Assignee must be an administrator",
         );
     }
-    if (current.version !== version)
-      throw new HttpError(
-        409,
-        "TICKET_VERSION_CONFLICT",
-        "Ticket was changed by another administrator",
-      );
     await prisma.$transaction(async (tx) => {
       const updated = await tx.ticket.updateMany({
         where: { id: ticketId, version },
