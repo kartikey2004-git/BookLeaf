@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getEnvironment } from "./env.js";
 
 describe("getEnvironment", () => {
-  it("uses Cloud Run PORT when API_PORT is not configured", () => {
+  it("uses the hosting PORT when API_PORT is not configured", () => {
     expect(getEnvironment({ PORT: "8080" }).API_PORT).toBe(8080);
   });
 

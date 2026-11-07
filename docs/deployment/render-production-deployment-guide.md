@@ -1,74 +1,86 @@
-# Render production deployment guide
+# Production deployment: Vercel, Render, Neon, Inngest, and Tigris
 
-BookLeaf production uses Vercel for Next.js and `/api/inngest`, Render for the Express API, Neon for PostgreSQL, and Cloudinary for ticket attachments. No GCP, Cloud Run, Artifact Registry, or GCP service account is required.
+Production consists of Vercel for the Next.js application and Inngest endpoint, Render for the Express API, Neon for PostgreSQL, Inngest Cloud for durable jobs, Tigris for attachments, and Gemini for server-side AI calls.
 
 ```mermaid
 flowchart LR
   Browser --> Web[Vercel: Next.js]
-  Web -->|same-origin proxy| API[Render: Express API]
+  Web -->|same-origin /api proxy| API[Render: Express API]
   API --> Neon[(Neon PostgreSQL)]
-  API --> Cloudinary[Cloudinary]
-  API -->|events| Inngest[Inngest Cloud]
+  API --> Tigris[Tigris object storage]
+  API -->|ticket event| Inngest[Inngest Cloud]
   Inngest --> Jobs[Vercel: /api/inngest]
   Jobs --> Neon
   Jobs --> Gemini[Gemini]
 ```
 
-## Neon
+## 1. Neon
 
-Create separate Neon development and production branches. Keep the production pooled and direct migration URLs private, both with `sslmode=require`.
+Create separate Neon branches for development and production. Give runtime services the production **pooled** connection URL as `DATABASE_URL`. Run Prisma migrations once from the reviewed release workflow using the production **direct** connection URL as `DIRECT_URL`; never run migrations when the Render API starts.
 
-- `DATABASE_URL`: pooled production URL for Render and Vercel `/api/inngest`.
-- `DIRECT_URL`: direct URL for the single controlled Prisma migration run in GitHub Actions.
+Both URLs must use TLS. Keep them in provider/GitHub secret storage and never put either in `NEXT_PUBLIC_*` variables.
 
-The deployment workflow runs `pnpm --filter @repo/database migrate:deploy` only when the protected `NEON_DIRECT_DATABASE_URL` GitHub secret is present. Never run migration commands at API startup.
+## 2. Render API
 
-## Render API
+Create the service from repository-root [`render.yaml`](../../render.yaml). It builds `apps/api/Dockerfile` from the monorepo root and uses `/api/v1/health/live` as its liveness check. Render supplies `PORT`; the API uses it when `API_PORT` is not set.
 
-Create the API from repository-root [`render.yaml`](../../render.yaml). It defines the Docker service `bookleaf-api`, builds `apps/api/Dockerfile` from the repository root, checks `/api/v1/health/live`, and deploys only after GitHub checks pass.
+Set these Render environment variables:
 
-During the initial Render Blueprint setup, supply these prompted secrets:
+| Variable                                                                     | Required             | Notes                                                                         |
+| ---------------------------------------------------------------------------- | -------------------- | ----------------------------------------------------------------------------- |
+| `NODE_ENV`                                                                   | Yes                  | `production`                                                                  |
+| `DATABASE_URL`                                                               | Yes                  | Neon pooled production URL                                                    |
+| `BETTER_AUTH_SECRET`                                                         | Yes                  | One stable high-entropy value                                                 |
+| `BETTER_AUTH_URL`                                                            | Yes                  | Exact Vercel production origin                                                |
+| `BETTER_AUTH_TRUSTED_ORIGINS`                                                | Yes                  | Exact browser origins, comma-separated                                        |
+| `WEB_ORIGIN`, `CORS_ORIGINS`                                                 | Yes                  | Same origin set as Better Auth trusted origins                                |
+| `INNGEST_EVENT_KEY`                                                          | Yes for triage       | Production Inngest event key                                                  |
+| `INNGEST_SIGNING_KEY`                                                        | No                   | Needed only if serving jobs from Render; production jobs are served by Vercel |
+| `GEMINI_API_KEY`                                                             | Yes for admin drafts | Server-side Gemini key                                                        |
+| `TIGRIS_ENDPOINT`, `TIGRIS_ACCESS_KEY`, `TIGRIS_SECRET_KEY`, `TIGRIS_BUCKET` | Yes for attachments  | S3-compatible Tigris configuration                                            |
+| `READINESS_CHECK_DATABASE`                                                   | Recommended          | `true`                                                                        |
 
-- `DATABASE_URL` — Neon pooled URL.
-- `WEB_ORIGIN`, `CORS_ORIGINS`, `BETTER_AUTH_URL`, and `BETTER_AUTH_TRUSTED_ORIGINS` — the exact Vercel production origin. CORS and trusted origins must match.
-- `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY` — production Inngest keys.
-- `GEMINI_API_KEY` — only when AI suggestions are enabled.
-- `CLOUDINARY_CLOUD_NAME` and `CLOUDINARY_UPLOAD_PRESET` — production attachment configuration.
+`CORS_ORIGINS` and `BETTER_AUTH_TRUSTED_ORIGINS` must contain the same normalized origins or the API intentionally refuses to start. Set `INNGEST_SERVE_HOST` only if your Inngest configuration requires an explicit public API base URL; it is not used by the API application itself.
 
-Render supplies `PORT`; the API maps it automatically when `API_PORT` is not set. Verify:
+Verify after deployment:
 
 ```text
 https://<render-api-origin>/api/v1/health/live
 https://<render-api-origin>/api/v1/health/ready
 ```
 
-## Vercel and Inngest
+## 3. Vercel web and jobs
 
-The Vercel project Root Directory is `apps/web`, with Node.js 22. Configure production secrets/config:
+Configure `apps/web` as the Vercel project Root Directory. The project needs server-side variables for the proxy, Better Auth configuration, Prisma, and the Inngest function. Configure them for Preview and Production as appropriate:
 
-| Variable              | Value                                                                      |
-| --------------------- | -------------------------------------------------------------------------- |
-| `API_PROXY_URL`       | Exact Render API HTTPS origin, no trailing slash                           |
-| `NEXT_PUBLIC_API_URL` | Same Render origin when needed; browser calls otherwise use `/api/*` proxy |
-| `DATABASE_URL`        | Neon pooled URL                                                            |
-| `INNGEST_EVENT_KEY`   | Production event key                                                       |
-| `INNGEST_SIGNING_KEY` | Production signing key                                                     |
-| `GEMINI_API_KEY`      | Production Gemini key when enabled                                         |
+| Variable                                                               | Value                                                                                       |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `NODE_ENV`                                                             | `production`                                                                                |
+| `API_PROXY_URL`                                                        | Exact Render API HTTPS origin, without a trailing slash                                     |
+| `NEXT_PUBLIC_API_URL`                                                  | Optional Render origin for server-side callers; browser API requests use the proxy          |
+| `DATABASE_URL`                                                         | Neon pooled URL, required by `/api/inngest`                                                 |
+| `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `BETTER_AUTH_TRUSTED_ORIGINS` | Same values used by the API, required by shared auth initialization                         |
+| `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `INNGEST_APP_ID`           | Inngest production values; `INNGEST_APP_ID` is optional and defaults to `foundation-worker` |
+| `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_TIMEOUT_MS`                  | Required/configurable for AI jobs                                                           |
 
-Register `https://<vercel-production-origin>/api/inngest` as the production endpoint in Inngest Cloud. Do not create a separate worker service.
+Register `https://<vercel-production-origin>/api/inngest` as the production serve endpoint in Inngest Cloud. Do not register the Render API endpoint as a second production job server: there must be one serving endpoint per Inngest environment.
 
-## Cloudinary
+## 4. Tigris attachments
 
-Create a production unsigned upload preset restricted to the accepted attachment types and 10 MB maximum. Put `CLOUDINARY_CLOUD_NAME` and `CLOUDINARY_UPLOAD_PRESET` only on Render. Do not expose Cloudinary administration credentials or server secrets to the browser.
+Create the bucket before release or allow the API identity to create it. Set `TIGRIS_ENDPOINT` to the S3 endpoint host or URL (for example, `https://t3.storage.dev`), and use credentials restricted to the BookLeaf attachment bucket. The API accepts PDF, Word, PNG, JPEG, plain text, and Markdown attachments up to 10 MB, stores them under `tickets/`, and returns 24-hour presigned download URLs.
 
-## CI/CD
+Tigris keys belong only in Render. They do not belong in Vercel or any `NEXT_PUBLIC_*` value.
 
-`production-deploy.yml` runs quality checks, the disposable PostgreSQL integration suite, the controlled Neon migration, and the Vercel prebuilt deployment. Render follows the same commit after GitHub checks pass through `autoDeployTrigger: checksPass`.
+## 5. Release order
 
-Required GitHub secrets: `NEON_DIRECT_DATABASE_URL`, `VERCEL_TOKEN`.
+1. Run `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, and `pnpm build` from the release commit.
+2. Apply committed Prisma migrations once with the Neon direct URL.
+3. Deploy Render and verify liveness/readiness.
+4. Deploy Vercel, then verify sign-in, author/admin authorization, and the same-origin API proxy.
+5. Sync the Vercel `/api/inngest` endpoint in Inngest Cloud and verify function discovery.
+6. Create a non-sensitive test ticket; confirm it is classified and that its job completion appears in the ticket.
+7. Verify one Tigris attachment upload/download and inspect Render/Vercel/Inngest logs for errors.
 
-Required GitHub variables: `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
+## Rollback
 
-## Release verification
-
-Confirm green GitHub Actions, successful Render and Vercel deployments, API liveness/readiness, browser auth, author/admin ticket flow, a Cloudinary attachment upload, closed-ticket reply blocking, and Inngest endpoint discovery before marking a release complete.
+Roll back Render to the last healthy deploy and Vercel to the prior healthy production deployment. Keep the database schema backward-compatible during the rollback window; prefer a forward migration or Neon recovery over deleting migration history. If credentials are exposed, rotate them at the owning provider and redeploy the affected service.

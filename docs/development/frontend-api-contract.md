@@ -1,54 +1,46 @@
 # Frontend API contract
 
-Base URL: `/api/v1`. All responses are JSON. Browser must send Better Auth cookies. Protected routes return `401 UNAUTHORIZED` without a valid session. Errors are `{ error: { code, message, details? }, requestId }`.
+Base URL: `/api/v1`. Browser clients use same-origin `/api/*` paths on Vercel; the web proxy forwards them to Render with Better Auth cookies. Responses are JSON unless the endpoint is an SSE stream. Errors use `{ error: { code, message, details? }, requestId }`.
 
 ## Authentication and authorization
 
-Better Auth is mounted at `/api/auth/*`. Author routes resolve session user to `Author.userId`; an unlinked account gets `403 AUTHOR_NOT_LINKED`. Admin routes require `User.role === "ADMIN"`; other users get `403 ADMIN_REQUIRED`. Client never supplies author IDs.
+Better Auth is mounted at `/api/auth/*`. Author routes resolve the session user through `Author.userId`; an unlinked user receives `403 AUTHOR_NOT_LINKED`. Admin routes require `User.role === "ADMIN"`. Clients never send author IDs.
 
 ## Author endpoints
 
 - `GET /author/me`: `{ author }`.
-- `GET /author/books?page=1&pageSize=20`: `{ books, pagination: { page, pageSize, total } }`. `pageSize` is 1–50.
+- `GET /author/books?page=1&pageSize=20`: `{ books, pagination }`; `pageSize` is 1–50.
 - `GET /author/books/:bookId`: `{ book }`; unavailable books return `404`.
 - `GET /author/overview`: `{ overview }`.
-- `POST /author/tickets`: body `{ bookId?, subject, description }`; returns `201 { ticket }`. `bookId` must belong to session author.
-- `POST /author/tickets/attachments/sign`: body `{ fileName, mimeType, size }` (1–10 MB, allowed types); returns `{ uploadUrl, uploadPreset, cloudName }` for an unsigned Cloudinary upload preset. Returns `503 ATTACHMENT_STORAGE_UNAVAILABLE` when storage is not configured. The browser then uploads the file to `uploadUrl` as `multipart/form-data` with `file` + `upload_preset`, and the provider returns `{ publicId, secureUrl }`.
-- `POST /author/tickets/:ticketId/attachments`: body `{ publicId, secureUrl, fileName, mimeType, size }`; persists the stored attachment for the ticket and returns `201 { attachment }`. Author-only; ticket must belong to the session author.
-- `GET /author/tickets?status&page&pageSize`: paginated `{ tickets, pagination }`; list items do not include messages.
+- `POST /author/tickets`: `{ bookId?, subject, description }` → `201 { ticket }`; the book must belong to the session author.
+- `POST /author/tickets/attachments/sign`: `{ fileName, mimeType, size }` → `{ storage: "minio" | "tigris", uploadUrl }`. It validates the 1–10 MB file and allowed MIME type before returning the upload route.
+- `PUT /author/tickets/attachments/upload`: raw file body with `X-File-Name` and `Content-Type` headers → `201 { publicId, secureUrl }`. It stores to MinIO locally or Tigris in production.
+- `POST /author/tickets/:ticketId/attachments`: `{ publicId, secureUrl, fileName, mimeType, size }` → `201 { attachment }`. The ticket must belong to the session author.
+- `GET /author/tickets?status&page&pageSize`: paginated `{ tickets, pagination }`; list items omit messages.
 - `GET /author/tickets/:ticketId`: `{ ticket }`, including public messages only.
-- `POST /author/tickets/:ticketId/messages`: body `{ content }`; returns `201 { message }`. Only `OPEN` and `IN_PROGRESS` accept author messages.
-- `GET /author/tickets/stream`: authenticated author-only SSE stream. Emits `connected` on open, then `ticket.updated` whenever the author's ticket changes (`{ ticketId, reference, reason }`; `reason` is one of `ticket-created`, `admin-message`, `author-message`, `status-changed`, `priority-changed`, `category-changed`, `assignment-changed`, `internal-note-added`, `attachment-added`). Events never carry message bodies or internal note contents. Author clients should refetch the ticket list and any open ticket on each event (resuming from the SSE `Last-Event-ID`). Returns `503 EVENT_STREAM_UNAVAILABLE` when the per-user stream cap is reached.
+- `POST /author/tickets/:ticketId/messages`: `{ content }` → `201 { message }`. Only `OPEN` and `IN_PROGRESS` accept author messages.
+- `GET /author/tickets/stream`: authenticated author SSE. It emits `connected` and `ticket.updated` events with `{ ticketId, reference, reason }`, never message bodies or internal notes.
+
+An unavailable attachment backend returns `503 ATTACHMENT_STORAGE_UNAVAILABLE`. The allowed attachment types are PDF, Word, PNG, JPEG, plain text, and Markdown.
 
 ## Admin endpoints
 
-- `GET /admin/tickets?status&category&priority&assignedAdminId&createdFrom&createdTo&unresolved&page&pageSize`: paginated queue, sorted by priority (`CRITICAL` first) then oldest first. `unresolved=true` restricts to `OPEN` + `IN_PROGRESS` when `status` is not given. List items include `assignedAdmin` (`{ id, name } | null`) and `ai.status`.
-- `GET /admin/tickets/:ticketId`: `{ ticket }`, with author, assignment, internal notes, audit events, and `ai` metadata.
-- `PATCH /admin/tickets/:ticketId/status`: body `{ status, version }`.
-- `PATCH /admin/tickets/:ticketId/priority`: body `{ priority, version }`.
-- `PATCH /admin/tickets/:ticketId/category`: body `{ category, version }`.
-- `PATCH /admin/tickets/:ticketId/assignment`: body `{ assignedAdminId: string | null, version }`.
-- `POST /admin/tickets/:ticketId/messages`: body `{ content }`; explicit public reply.
-- `POST /admin/tickets/:ticketId/internal-notes`: body `{ content }`; private note.
-- `POST /admin/tickets/:ticketId/ai-draft`: empty body; returns `{ draft, recommendations: { category, priority } }`. It never creates a public message.
-- `POST /admin/tickets/:ticketId/ai-draft/stream`: empty body; authenticated admin-only SSE stream. `chunk` events contain `{ text }`, `done` contains `{ draft, recommendations }`, and `error` contains a generic user-safe `{ message }` without provider diagnostics or error codes. It never creates a public message; disconnecting cancels generation.
+- `GET /admin/tickets?status&category&priority&assignedAdminId&createdFrom&createdTo&unresolved&page&pageSize`: paginated queue sorted by priority then age; list items include assignment and `ai.status`.
+- `GET /admin/tickets/:ticketId`: `{ ticket }`, including author, assignment, internal notes, audit events, and AI metadata.
+- `PATCH /admin/tickets/:ticketId/status`, `/priority`, `/category`, `/assignment`: mutation body includes the current `{ version }` plus the changed field.
+- `POST /admin/tickets/:ticketId/messages`: public support reply.
+- `POST /admin/tickets/:ticketId/internal-notes`: private administrator note.
+- `POST /admin/tickets/:ticketId/ai-draft`: returns `{ draft, recommendations }`; it never posts a message.
+- `POST /admin/tickets/:ticketId/ai-draft/stream`: admin SSE; `chunk`, `done`, and user-safe `error` events. Disconnecting cancels generation.
 
-The web client maps API status and error codes to friendly messages. It must not display raw API/provider messages, status values, or error codes.
-
-Mutation requests use current integer `version`. A competing write returns `409 TICKET_VERSION_CONFLICT`. Status transitions: `OPEN` to `IN_PROGRESS`, `RESOLVED`, or `CLOSED`; `IN_PROGRESS` to `OPEN`, `RESOLVED`, or `CLOSED`; `RESOLVED` to `IN_PROGRESS` or `CLOSED`; `CLOSED` is terminal.
+All ticket mutations use the current integer `version`; a competing update returns `409 TICKET_VERSION_CONFLICT`. `CLOSED` tickets are terminal and do not accept author replies.
 
 ## AI behavior
 
-Ticket creation returns immediately. `ai.status` starts pending. Gemini recommendations use fixed enums but remain separate from admin-controlled values. AI drafting is handled via Inngest steps: the draft is never sent as a public message or overwrites administrator category or priority. Draft endpoint returns `503 AI_UNAVAILABLE` for missing config or temporary provider failure, and `502 AI_UNAVAILABLE` for provider authentication or invalid structured output.
+Ticket creation returns before AI work completes. When Inngest is configured, `ai.status` begins pending and the `bookleaf/ticket.created` event performs triage asynchronously. Without the event key, the API marks the ticket for manual classification. AI recommendations never overwrite admin-controlled category or priority, and a draft is never sent automatically.
 
-## Environment and limits
+## Runtime requirements
 
-Required runtime variables: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `BETTER_AUTH_TRUSTED_ORIGINS`. AI needs `GEMINI_API_KEY`; `GEMINI_MODEL` defaults to `gemini-3.6-flash`; `GEMINI_TIMEOUT_MS` defaults to `60000` (60 seconds, configurable up to 120000). Inngest uses `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY` when connected. API keys never reach frontend code.
+The API requires database and Better Auth configuration. Tigris storage is configured only in Render; MinIO is local only. Vercel's `/api/inngest` function requires the pooled database URL, Better Auth settings, Inngest keys, and Gemini settings when AI jobs are enabled. See the [environment inventory](../deployment/environment-variables.md).
 
-Ticket attachments use an unsigned Cloudinary upload preset (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_UPLOAD_PRESET`); the API validates type and size before issuing the upload target and persists the confirmed attachment.
-
-OpenAPI endpoint: `GET /api/v1/openapi.json`. This document is frontend contract.
-
-## Server-sent events
-
-`GET /events` requires a valid Better Auth session. The stream sends a `connected` event with a request ID, then heartbeat comments. It is limited to three active streams per user and 100 per API process, and closes after 15 minutes. Events are best-effort: clients must not expect replay from `Last-Event-ID` or cross-instance delivery.
+OpenAPI is available at `GET /api/v1/openapi.json`. SSE delivery is best-effort: clients must refetch on events and cannot depend on replay or cross-instance fan-out.

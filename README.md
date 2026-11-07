@@ -1,20 +1,35 @@
 # BookLeaf Author Portal
 
-BookLeaf is a TypeScript monorepo for an author publishing portal. Authors can review books and royalties, create support tickets, and follow support updates. Administrators manage ticket workflows and AI-assisted drafts.
+BookLeaf is a pnpm/TypeScript monorepo for an author publishing portal. Authors view books and royalties and open support tickets; administrators manage the support queue and review AI-assisted drafts.
 
-## Architecture
+## Production topology
 
-- `apps/web` — Next.js App Router marketing pages and protected author/admin portal.
-- `apps/api` — Express REST API, health probes, OpenAPI, authenticated SSE, and middleware.
-- `packages/jobs` — Inngest functions (ticket AI triage and recovery), served by the `apps/web` `/api/inngest` endpoint.
-- `packages/*` — shared auth, database, validation, contracts, configuration, AI, and UI code.
+| Responsibility                       | Platform              | Application/configuration                                         |
+| ------------------------------------ | --------------------- | ----------------------------------------------------------------- |
+| Web UI and Inngest function endpoint | Vercel                | `apps/web`, including `/api/inngest`                              |
+| REST API and Better Auth server      | Render                | `apps/api`, built from `apps/api/Dockerfile`                      |
+| PostgreSQL                           | Neon                  | Prisma runtime uses the pooled URL; migrations use the direct URL |
+| Durable events and retries           | Inngest Cloud         | Delivers `bookleaf/ticket.created` to Vercel `/api/inngest`       |
+| Ticket attachments                   | Tigris object storage | S3-compatible storage used by the Render API                      |
+| AI triage and reply drafts           | Gemini                | Called only from server-side API/jobs code                        |
 
-See the [system overview](docs/architecture/system-overview.md) and [local setup](docs/development/local-setup.md) for detail.
+The browser calls same-origin `/api/*` routes on Vercel. The Next.js proxy forwards those requests and auth cookies to Render; browsers do not need the Render URL.
 
-## Quick start
+## Run locally
+
+### Prerequisites
+
+- Node.js 22 or newer
+- Corepack (or pnpm 10.23.0)
+- Docker Desktop with Docker Compose running
+
+### Setup
+
+Run these commands at the repository root. Use PowerShell equivalents on Windows when necessary.
 
 ```sh
-cp .env.example .env
+corepack enable
+cp .env.example .env.local
 pnpm install
 pnpm docker:up
 pnpm db:generate
@@ -23,31 +38,49 @@ pnpm --filter @repo/database seed
 pnpm dev
 ```
 
+`.env.local` is ignored and is the only local configuration file loaded by the development commands. Do not point it at production or copy production secrets into it. The template contains working local PostgreSQL and MinIO values; add a local Gemini key only if you want AI features, and local Inngest keys only if you are using an Inngest Dev Server.
+
+Open `http://localhost:3000`. The API is available at `http://localhost:4000`; its liveness and readiness probes are `/api/v1/health/live` and `/api/v1/health/ready`.
+
+To create local demo accounts after seeding:
+
+```sh
+pnpm --filter @repo/auth provision:demo
+pnpm --filter @repo/auth provision:admin -- admin@example.test
+```
+
+Both commands are deliberately blocked outside development and read the local `BOOKLEAF_DEMO_PASSWORD`; neither prints it.
+
 ## Common commands
 
-`pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:integration`, `pnpm format:check`, `pnpm docker:down`.
+```sh
+pnpm dev
+pnpm build
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm format:check
+pnpm docker:down
+```
 
-Read the [frontend API contract](docs/development/frontend-api-contract.md), [testing policy](docs/engineering/testing-policy.md), and [observability baseline](docs/engineering/observability.md) before changing a cross-service workflow.
+`pnpm docker:down` retains local volumes. To reset local data, remove the Docker volumes manually only when that data is no longer needed.
 
-## Security
+## Production configuration
 
-Keep `.env` private, use a unique Better Auth secret, and grant database access only to required services. Production requires exact CORS origins, TLS, managed database credentials, and an Inngest project configuration.
+Do not use the local Docker setup in production. Configure environment variables directly in Render and Vercel, keep Neon/Tigris credentials server-side, and register the Vercel Inngest endpoint in Inngest Cloud. The exact variable ownership and release checklist are in:
 
-## AI integration
+- [Render, Vercel, Neon, Inngest, and Tigris deployment guide](docs/deployment/render-production-deployment-guide.md)
+- [Environment-variable inventory](docs/deployment/environment-variables.md)
+- [Local development reference](docs/development/local-setup.md)
 
-BookLeaf uses Gemini `gemini-3.6-flash`, the configured default for both API and job execution. The implementation chooses a Flash model for cost and latency suitability for short ticket triage and reviewable drafts, while requesting structured JSON for classification and non-streaming drafts.
+## AI behavior and limits
 
-Triage supplies a category-selected slice of the canonical knowledge base plus tone guidance. Ticket text is explicitly untrusted and delimited separately from trusted policy and `<account_data>` blocks. Drafts receive only the linked book fields needed for a response; when account data is unavailable or incomplete, the prompt requires `[ADMIN TO VERIFY]` instead of guessed facts. ISBN/metadata recommendations have a code-side minimum priority of `HIGH`.
-
-Gemini calls use request timeouts, retry transient, rate-limit, and timeout failures with backoff plus jitter, and Zod validates structured output. Ticket triage runs asynchronously through Inngest, has a recovery sweep, and leaves manual classification and replies available when AI is unavailable. Drafts are generated only at an administrator's request and are never sent automatically.
-
-Cost controls limit ticket text to 6,000 characters, include at most eight public messages in a draft, retrieve only one matching KB category plus tone guidance, and cap output at 700 tokens for JSON calls and 1,024 for streaming drafts. Pino records per-call model, token usage metadata when Gemini provides it, and latency; prompts, ticket text, and keys are not logged.
+BookLeaf uses Gemini `gemini-3.6-flash` for ticket triage and administrator-requested reply drafts. Ticket text is untrusted input, structured responses are validated, and drafts are never sent automatically. ISBN/metadata tickets have a code-enforced minimum suggested priority of `HIGH`. Pino logs model, token-usage metadata, and latency without logging prompts, ticket content, or credentials.
 
 ## Known limitations
 
-- Rate limiting is an in-memory, per-process fixed window rather than a shared distributed limiter.
+- Rate limiting is an in-memory, per-process fixed window.
 - Drafts and prompts are not cached.
-- Attachment `secureUrl` and `publicId` are accepted from the client after format validation; the API does not independently verify the stored object.
-- The audit actor is recorded in ticket audit events, not in dedicated category/priority override fields on the ticket row.
+- The API accepts validated attachment references but does not independently verify a pre-existing remote object.
 - Knowledge-base retrieval is keyword-based rather than semantic search.
-- Local integration tests require a dedicated PostgreSQL integration database.
+- SSE is best-effort; it has no cross-instance fan-out or event replay.

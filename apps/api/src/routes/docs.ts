@@ -113,6 +113,30 @@ const openApiDocument = {
         },
       },
     },
+    "/api/v1/author/tickets/attachments/upload": {
+      put: {
+        summary: "Upload a validated attachment to configured object storage",
+        parameters: [
+          { name: "X-File-Name", in: "header", required: true },
+          { name: "Content-Type", in: "header", required: true },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/octet-stream": {
+              schema: { type: "string", format: "binary" },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "Stored attachment reference" },
+          "400": { description: "Validation failed" },
+          "401": { description: "Unauthenticated" },
+          "413": { description: "Attachment too large" },
+          "503": { description: "Attachment storage unavailable" },
+        },
+      },
+    },
     "/api/v1/author/tickets/{ticketId}/attachments": {
       post: {
         summary: "Persist a confirmed ticket attachment",

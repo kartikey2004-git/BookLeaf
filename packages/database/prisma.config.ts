@@ -1,17 +1,20 @@
 import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
 import { config } from "dotenv";
 import { defineConfig } from "prisma/config";
 
 if (!process.env.DIRECT_URL && !process.env.DATABASE_URL) {
+  const localEnvironmentPath = fileURLToPath(
+    new URL("../../.env.local", import.meta.url),
+  );
+  const exampleEnvironmentPath = fileURLToPath(
+    new URL("../../.env.example", import.meta.url),
+  );
   config({
-    path: fileURLToPath(
-      new URL(
-        process.env.NODE_ENV === "production"
-          ? "../../.env"
-          : "../../.env.example",
-        import.meta.url,
-      ),
-    ),
+    path:
+      existsSync(localEnvironmentPath) || process.env.NODE_ENV === "production"
+        ? localEnvironmentPath
+        : exampleEnvironmentPath,
   });
 }
 

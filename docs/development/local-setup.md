@@ -6,15 +6,15 @@ Use Node.js 22 or later, Docker Compose, and pnpm 10. The root package declares 
 
 ## Configure and start
 
-1. Configure the tracked local template in `.env.example`; `.env` is reserved for production-only values and must not be used by local commands. Replace the local Better Auth secret with a long random value before deploying a local environment shared with anyone else.
-2. Start PostgreSQL and MinIO with `pnpm docker:up` and wait for their health checks. MinIO is the local ticket-attachment store; its console is available at `http://localhost:9001` using the credentials in `.env.example`.
+1. Copy `.env.example` to ignored `.env.local`, then edit `.env.local` for local-only values. `.env` is reserved for production-only values and is never read by local commands. Replace the local Better Auth secret with a long random value before sharing a local environment.
+2. Start PostgreSQL and MinIO with `pnpm docker:up` and wait for their health checks. MinIO is the local ticket-attachment store; its console is available at `http://localhost:9001` using the credentials in `.env.local`.
 3. Generate Prisma Client with `pnpm db:generate`.
 4. Apply committed migrations with `pnpm --filter @repo/database migrate:deploy`.
 5. Import BookLeaf sample data with `pnpm --filter @repo/database seed`.
 6. Start the applications with `pnpm dev`; use package filters to run one process when needed.
 
 The web app's same-origin `/api/*` proxy requires `API_PROXY_URL`; for local
-development, set it to `http://localhost:4000` in the workspace-root `.env.example`.
+development, set it to `http://localhost:4000` in the workspace-root `.env.local`.
 The web app loads that file when its Next.js config starts; restart `pnpm dev`
 after changing the proxy URL.
 
@@ -46,11 +46,11 @@ Run `pnpm --filter @repo/database migrate:deploy` after pulling the ticket migra
 
 Ticket categories and priorities are fixed enums. An author can only link a ticket to their own book and never receives internal notes or audit events. Admin mutations require `{ "version": <current ticket version> }`; reload on `409 TICKET_VERSION_CONFLICT`. Closed tickets cannot be reopened or receive author replies.
 
-For local attachments, the API writes permitted uploads to MinIO. Keep the `MINIO_*` values in `.env.example` aligned with Docker Compose; the bucket is created automatically on first upload and attachment links use a private, time-limited download URL. Production may use the existing Cloudinary configuration instead.
+For local attachments, the API writes permitted uploads to MinIO. Keep the `MINIO_*` values in `.env.local` aligned with Docker Compose; the bucket is created automatically on first upload and attachment links use a private, time-limited download URL. Production uses Tigris through the `TIGRIS_*` configuration instead.
 
 ## Gemini AI support
 
-Set `GEMINI_API_KEY` in the repository-root `.env.example` for local development; the API development commands load that file at startup. Restart after changing AI settings. In production, configure the key only in the API secret environment where AI runs. `GEMINI_MODEL` defaults to the stable `gemini-3.6-flash`, and `GEMINI_TIMEOUT_MS` defaults to 60000 (60 seconds; configurable up to 120000). AI processing runs via Inngest steps connected to `bookleaf/ticket.created`. The API never sends a public reply. `POST /api/v1/admin/tickets/:ticketId/ai-draft` produces a reviewable draft only. Gemini failures are bounded-retried for transient/rate-limit failures; credentials and ticket content are not logged.
+Set `GEMINI_API_KEY` in the repository-root `.env.local` for local development; the API development commands load that file at startup. Restart after changing AI settings. In production, configure the key only in the Render API and Vercel Inngest-function secret environments where it runs. `GEMINI_MODEL` defaults to the stable `gemini-3.6-flash`, and `GEMINI_TIMEOUT_MS` defaults to 60000 (60 seconds; configurable up to 120000). AI processing runs via Inngest steps connected to `bookleaf/ticket.created`. The API never sends a public reply. `POST /api/v1/admin/tickets/:ticketId/ai-draft` produces a reviewable draft only. Gemini failures are bounded-retried for transient/rate-limit failures; credentials and ticket content are not logged.
 
 The web app uses port 3000, API port 4000 by default. OpenAPI JSON is exposed at `/api/v1/openapi.json`; liveness and readiness are `/api/v1/health/live` and `/api/v1/health/ready`.
 
