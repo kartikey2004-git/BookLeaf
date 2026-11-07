@@ -1788,15 +1788,10 @@
   margin: 0;
 }
 
-.portal-admin-audit-metadata {
+.portal-admin-audit-detail {
   margin: 0.35rem 0 0;
-  padding: 0.5rem;
-  background: var(--portal-surface, #ffffff);
-  border: 1px solid var(--portal-line-soft, #eee7dd);
-  border-radius: 0.35rem;
   font-size: 0.75rem;
-  overflow-x: auto;
-  white-space: pre-wrap;
+  color: var(--portal-muted, #6b7280);
 }
 
 .portal-books-search {

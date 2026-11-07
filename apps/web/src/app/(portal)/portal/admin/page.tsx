@@ -61,6 +61,35 @@ function formatFileSize(size: number): string {
   return `${Math.max(1, Math.round(size / 1024))} KB`;
 }
 
+function formatAuditValue(value: unknown): string {
+  if (value === null || value === undefined || value === "")
+    return "Unassigned";
+  if (typeof value !== "string") return "Updated";
+  return value
+    .toLowerCase()
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function auditDescription(action: string, metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null;
+  }
+  const { from, to } = metadata as { from?: unknown; to?: unknown };
+  switch (action) {
+    case "STATUS_CHANGED":
+      return `Status changed from ${formatAuditValue(from)} to ${formatAuditValue(to)}.`;
+    case "PRIORITY_CHANGED":
+      return `Priority changed from ${formatAuditValue(from)} to ${formatAuditValue(to)}.`;
+    case "CATEGORY_CHANGED":
+      return `Category changed from ${formatAuditValue(from)} to ${formatAuditValue(to)}.`;
+    case "ASSIGNMENT_CHANGED":
+      return to ? "Ticket assignment updated." : "Ticket assignment removed.";
+    default:
+      return null;
+  }
+}
+
 type Ticket = {
   id: string;
   reference: string;
@@ -774,10 +803,10 @@ export default function AdminPage() {
                       · {event.actor.name} ·{" "}
                       {new Date(event.createdAt).toLocaleString()}
                     </span>
-                    {event.metadata ? (
-                      <pre className="portal-admin-audit-metadata">
-                        {JSON.stringify(event.metadata)}
-                      </pre>
+                    {auditDescription(event.action, event.metadata) ? (
+                      <p className="portal-admin-audit-detail">
+                        {auditDescription(event.action, event.metadata)}
+                      </p>
                     ) : null}
                   </li>
                 ))}
