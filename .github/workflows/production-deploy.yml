@@ -64,9 +64,13 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+        env:
+          DATABASE_URL: postgresql://integration:integration-password@127.0.0.1:5432/bookleaf_integration?schema=public
+          DIRECT_URL: postgresql://integration:integration-password@127.0.0.1:5432/bookleaf_integration?schema=public
       - run: pnpm --filter @repo/database validate
         env:
           DATABASE_URL: postgresql://integration:integration-password@127.0.0.1:5432/bookleaf_integration?schema=public
+          DIRECT_URL: postgresql://integration:integration-password@127.0.0.1:5432/bookleaf_integration?schema=public
       - name: Run disposable database integration suite
         env:
           NODE_ENV: test

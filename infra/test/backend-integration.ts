@@ -128,14 +128,20 @@ test("Better Auth, PostgreSQL transactions, and AI claim races use real local in
       ticketVersion,
     ),
   ]);
+  const fulfilled = updates.filter((result) => result.status === "fulfilled");
+  const rejected = updates.filter((result) => result.status === "rejected");
   assert.equal(
-    updates.filter((result) => result.status === "fulfilled").length,
+    fulfilled.length,
     1,
+    `expected 1 fulfilled update, got ${fulfilled.length}; rejected reasons: ${rejected
+      .map((result) =>
+        result.status === "rejected" && result.reason instanceof Error
+          ? result.reason.message
+          : String(result.status === "rejected" ? result.reason : ""),
+      )
+      .join(" | ")}`,
   );
-  assert.equal(
-    updates.filter((result) => result.status === "rejected").length,
-    1,
-  );
+  assert.equal(rejected.length, 1);
 
   const claimResults = await Promise.all([
     claimTicketForAi(ticket.id),
