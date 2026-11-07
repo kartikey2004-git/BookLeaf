@@ -21,7 +21,9 @@ import {
   draftSchema,
   draftTextPrompt,
   streamDraft,
+  buildAccountDataBlock,
 } from "@repo/ai";
+import { prisma } from "@repo/database";
 import type { ApiEnvironment } from "../config/env.js";
 import { createInngestClient, publishTicketCreated } from "../lib/inngest.js";
 import {
@@ -126,6 +128,28 @@ async function notifyTicketChanged(
       "Could not publish ticket update event",
     );
   }
+}
+
+async function draftAccountData(ticketId: string): Promise<string> {
+  const linked = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: { authorId: true, bookId: true },
+  });
+  if (!linked?.bookId) return buildAccountDataBlock(null);
+  const book = await prisma.book.findFirst({
+    where: { id: linked.bookId, authorId: linked.authorId },
+    select: {
+      title: true, publicationStatus: true, isbn: true, publicationDate: true,
+      mrp: true, totalCopiesSold: true, totalRoyaltyEarned: true, royaltyPaid: true,
+      royaltyPending: true, lastRoyaltyPayoutDate: true,
+      distributions: { select: { platform: { select: { name: true } } } },
+    },
+  });
+  return buildAccountDataBlock(
+    book
+      ? { ...book, status: book.publicationStatus, platforms: book.distributions.map((item) => item.platform.name) }
+      : null,
+  );
 }
 
 export function createTicketRouters(
@@ -522,6 +546,7 @@ export function createTicketRouters(
           .slice(-8)
           .map((item) => `${item.sender.role}: ${item.content}`)
           .join("\n");
+        const accountData = await draftAccountData(ticketId);
         const draft = await completeJson(
           {
             apiKey: environment.GEMINI_API_KEY,
@@ -530,6 +555,7 @@ export function createTicketRouters(
           },
           draftPrompt(
             `Subject: ${ticket.subject}\nDescription: ${ticket.description}\nConversation:\n${conversation}`,
+            accountData,
           ),
           draftSchema,
         );
@@ -589,6 +615,7 @@ export function createTicketRouters(
           .slice(-8)
           .map((item) => `${item.sender.role}: ${item.content}`)
           .join("\n");
+        const accountData = await draftAccountData(ticketId);
 
         response.status(200).set({
           "Content-Type": "text/event-stream; charset=utf-8",
@@ -612,6 +639,7 @@ export function createTicketRouters(
           },
           draftTextPrompt(
             `Subject: ${ticket.subject}\nDescription: ${ticket.description}\nConversation:\n${conversation}`,
+            accountData,
           ),
           (text) => {
             if (!controller?.signal.aborted && !response.destroyed) {
