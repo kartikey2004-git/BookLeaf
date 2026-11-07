@@ -8,7 +8,11 @@ if (process.env.NODE_ENV !== "production") {
   config({ path: fileURLToPath(new URL("../../../.env", import.meta.url)) });
 }
 
-const databaseUrl = process.env.DATABASE_URL;
+const databaseUrl =
+  process.env.DATABASE_URL ??
+  (process.env.NODE_ENV === "test"
+    ? "postgresql://127.0.0.1:5432/bookleaf_test?schema=public"
+    : undefined);
 
 if (!databaseUrl) {
   throw new Error(
