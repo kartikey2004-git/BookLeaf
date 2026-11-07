@@ -145,7 +145,10 @@ export async function uploadToCloudinary(
       typeof providerError?.message === "string"
         ? providerError.message.slice(0, 500)
         : undefined;
-    throw new CloudinaryUploadError({ status: response.status, message });
+    throw new CloudinaryUploadError({
+      status: response.status,
+      ...(message === undefined ? {} : { message }),
+    });
   }
 
   const uploaded = payload as { public_id?: unknown; secure_url?: unknown };
