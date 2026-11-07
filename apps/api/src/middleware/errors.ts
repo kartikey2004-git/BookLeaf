@@ -50,6 +50,15 @@ export const errorHandler: ErrorRequestHandler = (
     { err: error, requestId: request.requestId, code: normalized.code },
     "request error",
   );
+
+  // If headers are already committed (e.g. an SSE stream started writing
+  // text/event-stream before the error occurred), we cannot send a JSON
+  // error body. Log and return instead of crashing with
+  // ERR_HTTP_HEADERS_SENT.
+  if (response.headersSent) {
+    return;
+  }
+
   response.status(normalized.status).json({
     error: {
       code: normalized.code,
