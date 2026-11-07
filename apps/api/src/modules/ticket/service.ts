@@ -74,7 +74,7 @@ const authorTicketSelection = {
       cloudinaryPublicId: true,
       secureUrl: true,
       createdAt: true,
-      uploadedByUser: { select: { name: true, role: true } },
+      uploadedByUserId: true,
     },
     orderBy: { createdAt: "asc" },
   },
@@ -198,7 +198,7 @@ function authorTicket(ticket: {
     cloudinaryPublicId: string;
     secureUrl: string;
     createdAt: Date;
-    uploadedByUser: { name: string; role: string };
+    uploadedByUserId: string;
   }> | null;
 }) {
   return {

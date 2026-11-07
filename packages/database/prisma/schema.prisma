@@ -10,21 +10,22 @@ datasource db {
 }
 
 model User {
-  id            String    @id
-  name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  image         String?
-  role          String    @default("AUTHOR")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  sessions      Session[]
-  accounts      Account[]
-  author        Author?
-  assignedTickets Ticket[]             @relation("TicketAssignee")
-  ticketMessages TicketMessage[]
-  internalNotes  TicketInternalNote[]
-  ticketAudits   TicketAuditEvent[]
+  id                String               @id
+  name              String
+  email             String               @unique
+  emailVerified     Boolean              @default(false)
+  image             String?
+  role              String               @default("AUTHOR")
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  sessions          Session[]
+  accounts          Account[]
+  author            Author?
+  assignedTickets   Ticket[]             @relation("TicketAssignee")
+  ticketMessages    TicketMessage[]
+  internalNotes     TicketInternalNote[]
+  ticketAudits      TicketAuditEvent[]
+  ticketAttachments TicketAttachment[]   @relation("TicketAttachmentUploader")
 
   @@map("user")
 }
@@ -48,27 +49,27 @@ model Author {
 }
 
 model Book {
-  id                     String             @id @default(cuid())
-  externalId             String             @unique
-  authorId               String
-  author                 Author             @relation(fields: [authorId], references: [id], onDelete: Restrict)
-  title                  String
-  isbn                   String
-  genre                  String
-  publicationDate        DateTime?          @db.Date
-  publicationStatus      String
-  mrp                    Decimal?           @db.Decimal(12, 2)
-  royaltyPerCopy         Decimal?           @db.Decimal(12, 2)
-  totalCopiesSold        Int
-  totalRoyaltyEarned     Decimal            @db.Decimal(14, 2)
-  royaltyPaid            Decimal            @db.Decimal(14, 2)
-  royaltyPending         Decimal            @db.Decimal(14, 2)
-  lastRoyaltyPayoutDate  DateTime?          @db.Date
-  printPartner           String?
-  distributions          BookDistribution[]
-  tickets                Ticket[]
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
+  id                    String             @id @default(cuid())
+  externalId            String             @unique
+  authorId              String
+  author                Author             @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  title                 String
+  isbn                  String
+  genre                 String
+  publicationDate       DateTime?          @db.Date
+  publicationStatus     String
+  mrp                   Decimal?           @db.Decimal(12, 2)
+  royaltyPerCopy        Decimal?           @db.Decimal(12, 2)
+  totalCopiesSold       Int
+  totalRoyaltyEarned    Decimal            @db.Decimal(14, 2)
+  royaltyPaid           Decimal            @db.Decimal(14, 2)
+  royaltyPending        Decimal            @db.Decimal(14, 2)
+  lastRoyaltyPayoutDate DateTime?          @db.Date
+  printPartner          String?
+  distributions         BookDistribution[]
+  tickets               Ticket[]
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
   @@index([authorId])
   @@index([publicationStatus])
@@ -116,44 +117,44 @@ enum AiProcessingStatus {
 }
 
 model Ticket {
-  id              String         @id @default(cuid())
-  reference       String         @unique
-  authorId        String
-  author          Author         @relation(fields: [authorId], references: [id], onDelete: Restrict)
-  bookId          String?
-  book            Book?          @relation(fields: [bookId], references: [id], onDelete: SetNull)
-  subject         String
-  description     String
-  category        TicketCategory @default(GENERAL_INQUIRY)
-  priority        TicketPriority @default(MEDIUM)
-  status          TicketStatus   @default(OPEN)
-  assignedAdminId String?
-  assignedAdmin   User?          @relation("TicketAssignee", fields: [assignedAdminId], references: [id], onDelete: SetNull)
-  resolvedAt      DateTime?
-  closedAt        DateTime?
-  version         Int            @default(0)
-  aiSuggestedCategory TicketCategory?
-  aiSuggestedPriority TicketPriority?
+  id                         String               @id @default(cuid())
+  reference                  String               @unique
+  authorId                   String
+  author                     Author               @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  bookId                     String?
+  book                       Book?                @relation(fields: [bookId], references: [id], onDelete: SetNull)
+  subject                    String
+  description                String
+  category                   TicketCategory       @default(GENERAL_INQUIRY)
+  priority                   TicketPriority       @default(MEDIUM)
+  status                     TicketStatus         @default(OPEN)
+  assignedAdminId            String?
+  assignedAdmin              User?                @relation("TicketAssignee", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  resolvedAt                 DateTime?
+  closedAt                   DateTime?
+  version                    Int                  @default(0)
+  aiSuggestedCategory        TicketCategory?
+  aiSuggestedPriority        TicketPriority?
   aiClassificationConfidence Float?
-  aiPriorityConfidence Float?
-  aiClassificationReasoning String?
-  aiPriorityReasoning String?
-  aiKnowledgeSections Json?
-  aiStatus        AiProcessingStatus @default(PENDING)
-  aiProvider      String?
-  aiModel         String?
-  aiPromptVersion String?
-  aiProcessedAt   DateTime?
-  aiError         String?
-  aiAttempts      Int            @default(0)
-  categoryOverriddenAt DateTime?
-  priorityOverriddenAt DateTime?
-  messages        TicketMessage[]
-  internalNotes   TicketInternalNote[]
-  auditEvents     TicketAuditEvent[]
-  attachments     TicketAttachment[]
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  aiPriorityConfidence       Float?
+  aiClassificationReasoning  String?
+  aiPriorityReasoning        String?
+  aiKnowledgeSections        Json?
+  aiStatus                   AiProcessingStatus   @default(PENDING)
+  aiProvider                 String?
+  aiModel                    String?
+  aiPromptVersion            String?
+  aiProcessedAt              DateTime?
+  aiError                    String?
+  aiAttempts                 Int                  @default(0)
+  categoryOverriddenAt       DateTime?
+  priorityOverriddenAt       DateTime?
+  messages                   TicketMessage[]
+  internalNotes              TicketInternalNote[]
+  auditEvents                TicketAuditEvent[]
+  attachments                TicketAttachment[]
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime             @updatedAt
 
   @@index([authorId, createdAt])
   @@index([bookId])
@@ -163,13 +164,13 @@ model Ticket {
 }
 
 model TicketMessage {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   ticketId     String
-  ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket       Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   senderUserId String
-  sender       User     @relation(fields: [senderUserId], references: [id], onDelete: Restrict)
+  sender       User      @relation(fields: [senderUserId], references: [id], onDelete: Restrict)
   content      String
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
   editedAt     DateTime?
 
   @@index([ticketId, createdAt])
@@ -275,6 +276,7 @@ model TicketAttachment {
   ticketId           String
   ticket             Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   uploadedByUserId   String
+  uploadedByUser     User     @relation("TicketAttachmentUploader", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
   fileName           String
   mimeType           String
   size               Int
@@ -283,10 +285,11 @@ model TicketAttachment {
   createdAt          DateTime @default(now())
 
   @@index([ticketId])
+  @@index([uploadedByUserId])
 }
 
 model TicketEvent {
-  id         Int      @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   authorId  String
   ticketId  String
   reference String

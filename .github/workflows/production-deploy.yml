@@ -121,6 +121,6 @@ jobs:
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
         run: |
           test -n "$VERCEL_TOKEN" && test -n "$VERCEL_ORG_ID" && test -n "$VERCEL_PROJECT_ID"
-          pnpm dlx vercel@65.11.0 pull --cwd apps/web --yes --environment=production --token="$VERCEL_TOKEN"
-          pnpm dlx vercel@65.11.0 build --cwd apps/web --prod --token="$VERCEL_TOKEN"
-          pnpm dlx vercel@65.11.0 deploy --cwd apps/web --prebuilt --prod --yes --token="$VERCEL_TOKEN"
+          pnpm dlx vercel@65.11.0 pull --yes --environment=production --token="$VERCEL_TOKEN"
+          pnpm dlx vercel@65.11.0 build --prod --token="$VERCEL_TOKEN"
+          pnpm dlx vercel@65.11.0 deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN"
