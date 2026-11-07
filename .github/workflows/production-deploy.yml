@@ -9,9 +9,6 @@ on:
         default: master
         type: string
 
-  push:
-    branches: [master]
-
 permissions:
   contents: read
 
@@ -82,12 +79,13 @@ jobs:
           pnpm --filter @repo/database migrate:deploy
           pnpm test:integration
       - name: Apply reviewed Prisma migrations once
-        if: ${{ secrets.NEON_DIRECT_DATABASE_URL != '' }}
+        if: ${{ env.NEON_DIRECT_DATABASE_URL != '' }}
         env:
+          NEON_DIRECT_DATABASE_URL: ${{ secrets.NEON_DIRECT_DATABASE_URL }}
           DIRECT_URL: ${{ secrets.NEON_DIRECT_DATABASE_URL }}
         run: pnpm --filter @repo/database migrate:deploy
       - name: Deploy the prepared Vercel frontend
-        if: ${{ secrets.VERCEL_TOKEN != '' && vars.VERCEL_ORG_ID != '' && vars.VERCEL_PROJECT_ID != '' }}
+        if: ${{ env.VERCEL_TOKEN != '' && vars.VERCEL_ORG_ID != '' && vars.VERCEL_PROJECT_ID != '' }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}

@@ -2,14 +2,18 @@ import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
 import { defineConfig } from "prisma/config";
 
-config({
-  path: fileURLToPath(
-    new URL(
-      process.env.NODE_ENV === "production" ? "../../.env" : "../../.env.example",
-      import.meta.url,
+if (!process.env.DIRECT_URL && !process.env.DATABASE_URL) {
+  config({
+    path: fileURLToPath(
+      new URL(
+        process.env.NODE_ENV === "production"
+          ? "../../.env"
+          : "../../.env.example",
+        import.meta.url,
+      ),
     ),
-  ),
-});
+  });
+}
 
 const migrationUrl =
   process.env.DIRECT_URL ??
