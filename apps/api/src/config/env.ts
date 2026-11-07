@@ -30,14 +30,18 @@ const environmentSchema = z.object({
     .min(1000)
     .max(120000)
     .default(60000),
-  CLOUDINARY_CLOUD_NAME: optionalNonEmptyString,
-  CLOUDINARY_UPLOAD_PRESET: optionalNonEmptyString,
   MINIO_ENDPOINT: optionalNonEmptyString,
   MINIO_PORT: z.coerce.number().int().min(1).max(65535).optional(),
   MINIO_USE_SSL: booleanFromString.optional().default(false),
   MINIO_ACCESS_KEY: optionalNonEmptyString,
   MINIO_SECRET_KEY: optionalNonEmptyString,
   MINIO_BUCKET: optionalNonEmptyString,
+  TIGRIS_ENDPOINT: optionalNonEmptyString,
+  TIGRIS_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+  TIGRIS_USE_SSL: booleanFromString.optional().default(true),
+  TIGRIS_ACCESS_KEY: optionalNonEmptyString,
+  TIGRIS_SECRET_KEY: optionalNonEmptyString,
+  TIGRIS_BUCKET: optionalNonEmptyString,
   READINESS_CHECK_DATABASE: booleanFromString.optional().default(false),
 });
 

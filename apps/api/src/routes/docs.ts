@@ -87,7 +87,7 @@ const openApiDocument = {
     },
     "/api/v1/author/tickets/attachments/sign": {
       post: {
-        summary: "Request a Cloudinary upload target for a ticket attachment",
+        summary: "Request an attachment upload target for a ticket attachment",
         requestBody: {
           required: true,
           content: {
@@ -105,7 +105,7 @@ const openApiDocument = {
           },
         },
         responses: {
-          "200": { description: "Cloudinary unsigned upload target" },
+          "200": { description: "Tigris or local MinIO upload target" },
           "400": { description: "Validation failed" },
           "401": { description: "Unauthenticated" },
           "413": { description: "Attachment too large" },
@@ -115,7 +115,7 @@ const openApiDocument = {
     },
     "/api/v1/author/tickets/{ticketId}/attachments": {
       post: {
-        summary: "Persist a confirmed Cloudinary ticket attachment",
+        summary: "Persist a confirmed ticket attachment",
         parameters: [{ name: "ticketId", in: "path", required: true }],
         requestBody: {
           required: true,

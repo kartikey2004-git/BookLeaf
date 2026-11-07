@@ -41,7 +41,11 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
-      - key: CLOUDINARY_CLOUD_NAME
+      - key: TIGRIS_ENDPOINT
         sync: false
-      - key: CLOUDINARY_UPLOAD_PRESET
+      - key: TIGRIS_ACCESS_KEY
+        sync: false
+      - key: TIGRIS_SECRET_KEY
+        sync: false
+      - key: TIGRIS_BUCKET
         sync: false

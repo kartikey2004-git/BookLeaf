@@ -25,14 +25,12 @@ import {
 import type { ApiEnvironment } from "../config/env.js";
 import { createInngestClient, publishTicketCreated } from "../lib/inngest.js";
 import {
-  createMinioObjectKey,
-  CloudinaryUploadError,
+  createAttachmentObjectKey,
   getMinioAttachmentStorage,
-  getTicketAttachmentUploadTarget,
-  uploadToCloudinary,
-  uploadToMinio,
+  getTigrisAttachmentStorage,
+  uploadAttachment,
   validateAttachmentFile,
-} from "../lib/cloudinary.js";
+} from "../lib/attachment-storage.js";
 import { createFixedWindowRateLimit } from "../middleware/rate-limit.js";
 import {
   initializeEventStream,
@@ -152,6 +150,7 @@ export function createTicketRouters(
       try {
         const input = authorAttachmentSignSchema.parse(request.body);
         const minio = getMinioAttachmentStorage(environment);
+        const tigris = getTigrisAttachmentStorage(environment);
         if (minio) {
           validateAttachmentFile(input.fileName, input.mimeType, input.size);
           response.json({
@@ -160,8 +159,7 @@ export function createTicketRouters(
           });
           return;
         }
-        const target = getTicketAttachmentUploadTarget(environment);
-        if (!target) {
+        if (!tigris) {
           throw new HttpError(
             503,
             "ATTACHMENT_STORAGE_UNAVAILABLE",
@@ -170,16 +168,10 @@ export function createTicketRouters(
         }
         validateAttachmentFile(input.fileName, input.mimeType, input.size);
         response.json({
-          storage: "cloudinary",
+          storage: "tigris",
           uploadUrl: "/api/v1/author/tickets/attachments/upload",
         });
       } catch (error) {
-        if (error instanceof CloudinaryUploadError) {
-          request.log?.error(
-            { requestId: request.requestId, cloudinary: error.cloudinary },
-            "Cloudinary attachment upload rejected",
-          );
-        }
         next(error);
       }
     },
@@ -201,27 +193,17 @@ export function createTicketRouters(
         }
         validateAttachmentFile(fileName, mimeType, content.length);
         const minio = getMinioAttachmentStorage(environment);
-        const target = getTicketAttachmentUploadTarget(environment);
-        if (!minio && !target) {
+        const tigris = getTigrisAttachmentStorage(environment);
+        const storage = minio ?? tigris;
+        if (!storage) {
           throw new HttpError(
             503,
             "ATTACHMENT_STORAGE_UNAVAILABLE",
             "Attachment storage is not configured",
           );
         }
-        let publicId: string;
-        let secureUrl: string;
-        if (minio) {
-          publicId = createMinioObjectKey(fileName);
-          secureUrl = await uploadToMinio(minio, publicId, content, mimeType);
-        } else {
-          ({ publicId, secureUrl } = await uploadToCloudinary(
-            target!,
-            content,
-            fileName,
-            mimeType,
-          ));
-        }
+        const publicId = createAttachmentObjectKey(fileName);
+        const secureUrl = await uploadAttachment(storage, publicId, content, mimeType);
         response.status(201).json({ publicId, secureUrl });
       } catch (error) {
         next(error);
