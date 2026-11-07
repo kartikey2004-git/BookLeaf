@@ -1,6 +1,7 @@
 import { prisma } from "@repo/database";
 import {
   AI_PROMPT_VERSION,
+  applyPriorityFloor,
   completeJson,
   triagePrompt,
   triageSchema,
@@ -58,11 +59,15 @@ async function processTicket(ticketId: string) {
       timeoutMs: environment.GEMINI_TIMEOUT_MS,
     };
     const triage = await completeJson(config, triagePrompt(text), triageSchema);
+    const suggestedPriority = applyPriorityFloor(
+      triage.classification.category,
+      triage.priority.priority,
+    );
     await prisma.ticket.update({
       where: { id: ticketId },
       data: {
         aiSuggestedCategory: triage.classification.category,
-        aiSuggestedPriority: triage.priority.priority,
+        aiSuggestedPriority: suggestedPriority,
         aiClassificationConfidence: triage.classification.confidence,
         aiPriorityConfidence: triage.priority.confidence,
         aiClassificationReasoning: triage.classification.reasoning,

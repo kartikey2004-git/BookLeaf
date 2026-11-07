@@ -13,6 +13,28 @@ export const categories = [
   "GENERAL_INQUIRY",
 ] as const;
 export const priorities = ["CRITICAL", "HIGH", "MEDIUM", "LOW"] as const;
+export type TicketCategory = (typeof categories)[number];
+export type TicketPriority = (typeof priorities)[number];
+
+const priorityRank: Record<TicketPriority, number> = {
+  LOW: 0,
+  MEDIUM: 1,
+  HIGH: 2,
+  CRITICAL: 3,
+};
+
+export function applyPriorityFloor(
+  category: TicketCategory,
+  priority: TicketPriority,
+): TicketPriority {
+  if (
+    category === "ISBN_AND_METADATA" &&
+    priorityRank[priority] < priorityRank.HIGH
+  ) {
+    return "HIGH";
+  }
+  return priority;
+}
 export const classificationSchema = z.object({
   category: z.enum(categories),
   confidence: z.number().min(0).max(1),
