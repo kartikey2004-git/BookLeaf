@@ -19,6 +19,7 @@ export type AuthorRouteDependencies = {
 
 export type TicketRouteDependencies = AuthorRouteDependencies & {
   ticketService: TicketService;
+  markAiTriageUnavailable?: (ticketId: string) => Promise<void>;
 };
 
 export function createApp(
@@ -78,6 +79,7 @@ export function createApp(
       ticketDependencies.authorService,
       ticketDependencies.ticketService,
       environment,
+      ticketDependencies.markAiTriageUnavailable,
     );
     app.use("/api/v1", tickets.author);
     app.use("/api/v1", tickets.admin);

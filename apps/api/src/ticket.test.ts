@@ -132,6 +132,7 @@ const ticketService = {
     createdAt: "2026-11-04T00:00:00.000Z",
   }),
 } as unknown as TicketService;
+const markAiTriageUnavailable = vi.fn(async () => undefined);
 
 const dependencies: AuthorRouteDependencies = {
   getSession: async (headers) => {
@@ -157,11 +158,16 @@ const app = createApp(
   },
   undefined,
   dependencies,
-  { ...dependencies, ticketService } as TicketRouteDependencies,
+  {
+    ...dependencies,
+    ticketService,
+    markAiTriageUnavailable,
+  } as TicketRouteDependencies,
 );
 
 describe("ticket HTTP APIs", () => {
   it("creates general and book tickets for the session author only", async () => {
+    markAiTriageUnavailable.mockClear();
     const created = await request(app)
       .post("/api/v1/author/tickets")
       .set("Cookie", "session=author")
@@ -179,6 +185,7 @@ describe("ticket HTTP APIs", () => {
       });
     expect(created.status).toBe(201);
     expect(foreignBook.status).toBe(404);
+    expect(markAiTriageUnavailable).toHaveBeenCalledWith("ticket-1");
   });
 
   it("keeps author ticket access and public messages scoped", async () => {

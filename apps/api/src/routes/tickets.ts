@@ -157,6 +157,17 @@ export function createTicketRouters(
   authorService: AuthorService,
   ticketService: TicketService,
   environment?: ApiEnvironment,
+  markAiTriageUnavailable: (ticketId: string) => Promise<void> = async (
+    ticketId,
+  ) => {
+    await prisma.ticket.update({
+      where: { id: ticketId },
+      data: {
+        aiStatus: "FAILED",
+        aiError: "AI triage is unavailable. Classify this ticket manually.",
+      },
+    });
+  },
 ): { author: Router; admin: Router } {
   const author = Router();
   author.use("/author", createRequireAuthor(getSession, authorService));
@@ -275,6 +286,17 @@ export function createTicketRouters(
         publishTicketCreated(createInngestClient(environment), ticket.id).catch(
           () => undefined,
         );
+      } else {
+        markAiTriageUnavailable(ticket.id).catch((error: unknown) => {
+          request.log?.warn?.(
+            {
+              requestId: request.requestId,
+              ticketId: ticket.id,
+              err: error instanceof Error ? error.message : String(error),
+            },
+            "Could not mark ticket AI triage as unavailable",
+          );
+        });
       }
       await notifyTicketChanged(
         request,

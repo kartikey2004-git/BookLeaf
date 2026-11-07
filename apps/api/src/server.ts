@@ -10,6 +10,11 @@ import { prismaAuthorService } from "./modules/author/service.js";
 import { prismaTicketService } from "./modules/ticket/service.js";
 
 const environment = getEnvironment();
+if (!environment.INNGEST_EVENT_KEY) {
+  console.warn(
+    "INNGEST_EVENT_KEY is not configured; new tickets will be marked for manual AI classification.",
+  );
+}
 const inngestHandler = environment.INNGEST_SIGNING_KEY
   ? serve({ client: inngest, functions })
   : undefined;
