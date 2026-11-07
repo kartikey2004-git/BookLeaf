@@ -1,4 +1,6 @@
-# Production deployment guide
+# Legacy Google Cloud deployment guide
+
+> Superseded by [the Render production deployment guide](./render-production-deployment-guide.md). Do not use this guide for the active production topology.
 
 This manual runbook is repository-specific. It does not mean any cloud resource already exists. Run commands from the repository root in PowerShell unless noted. Do not put credentials in source, logs, shell history, or public environment variables.
 

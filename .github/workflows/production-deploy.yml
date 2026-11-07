@@ -14,16 +14,10 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: bookleaf-production
   cancel-in-progress: false
-
-env:
-  REGION: ${{ vars.GCP_REGION }}
-  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-  REPOSITORY: ${{ vars.ARTIFACT_REPOSITORY }}
 
 jobs:
   deploy:
@@ -92,40 +86,6 @@ jobs:
         env:
           DIRECT_URL: ${{ secrets.NEON_DIRECT_DATABASE_URL }}
         run: pnpm --filter @repo/database migrate:deploy
-      - id: auth
-        if: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && vars.GCP_DEPLOY_SERVICE_ACCOUNT != '' }}
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
-        with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/setup-gcloud@1bee7de035d65ec5da40a31f8589e240eba8fde5 # v2.2.1
-        if: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && vars.GCP_DEPLOY_SERVICE_ACCOUNT != '' }}
-      - name: Validate release variables
-        if: ${{ vars.GCP_PROJECT_ID != '' && vars.GCP_REGION != '' && vars.ARTIFACT_REPOSITORY != '' }}
-        run: test -n "$PROJECT_ID" && test -n "$REGION" && test -n "$REPOSITORY"
-      - name: Configure Artifact Registry authentication
-        if: ${{ vars.GCP_PROJECT_ID != '' && vars.GCP_REGION != '' && vars.ARTIFACT_REPOSITORY != '' }}
-        run: gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
-      - name: Build and push immutable service images
-        if: ${{ vars.GCP_PROJECT_ID != '' && vars.GCP_REGION != '' && vars.ARTIFACT_REPOSITORY != '' }}
-        env:
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker build -f apps/api/Dockerfile -t "$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/api:$IMAGE_TAG" .
-          docker push "$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/api:$IMAGE_TAG"
-      - name: Deploy Cloud Run services
-        if: ${{ vars.GCP_PROJECT_ID != '' && vars.GCP_REGION != '' && vars.ARTIFACT_REPOSITORY != '' && vars.WEB_ORIGIN != '' }}
-        env:
-          IMAGE_TAG: ${{ github.sha }}
-          WEB_ORIGIN: ${{ vars.WEB_ORIGIN }}
-        run: |
-          test -n "$WEB_ORIGIN"
-          gcloud run deploy bookleaf-api --project="$PROJECT_ID" --region="$REGION" --image="$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/api:$IMAGE_TAG" --service-account="bookleaf-api@$PROJECT_ID.iam.gserviceaccount.com" --port=8080 --allow-unauthenticated --set-env-vars="NODE_ENV=production,API_HOST=0.0.0.0,WEB_ORIGIN=$WEB_ORIGIN,CORS_ORIGINS=$WEB_ORIGIN,BETTER_AUTH_URL=$WEB_ORIGIN,BETTER_AUTH_TRUSTED_ORIGINS=$WEB_ORIGIN,READINESS_CHECK_DATABASE=true" --set-secrets="DATABASE_URL=database-url:latest,BETTER_AUTH_SECRET=better-auth-secret:latest,INNGEST_EVENT_KEY=inngest-event-key:latest,INNGEST_SIGNING_KEY=inngest-signing-key:latest,GEMINI_API_KEY=gemini-api-key:latest"
-      - name: Smoke-test live endpoints
-        if: ${{ vars.GCP_PROJECT_ID != '' && vars.GCP_REGION != '' && vars.ARTIFACT_REPOSITORY != '' }}
-        run: |
-          API_URL="$(gcloud run services describe bookleaf-api --project="$PROJECT_ID" --region="$REGION" --format='value(status.url)')"
-          curl --fail --silent --show-error "$API_URL/api/v1/health/live"
       - name: Deploy the prepared Vercel frontend
         if: ${{ secrets.VERCEL_TOKEN != '' && vars.VERCEL_ORG_ID != '' && vars.VERCEL_PROJECT_ID != '' }}
         env:
