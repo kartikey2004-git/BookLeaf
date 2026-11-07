@@ -21,6 +21,11 @@ export type CloudinaryUploadTarget = {
   cloudName: string;
 };
 
+type CloudinaryUploadResult = {
+  publicId: string;
+  secureUrl: string;
+};
+
 type MinioAttachmentStorage = {
   client: Client;
   bucket: string;
@@ -90,6 +95,55 @@ export function getTicketAttachmentUploadTarget(
     uploadPreset,
     cloudName,
   };
+}
+
+export async function uploadToCloudinary(
+  target: CloudinaryUploadTarget,
+  content: Buffer,
+  fileName: string,
+  mimeType: string,
+): Promise<CloudinaryUploadResult> {
+  const form = new FormData();
+  form.set(
+    "file",
+    new Blob([Uint8Array.from(content)], { type: mimeType }),
+    fileName,
+  );
+  form.set("upload_preset", target.uploadPreset);
+
+  let response: Response;
+  try {
+    response = await fetch(target.uploadUrl, { method: "POST", body: form });
+  } catch {
+    throw new HttpError(
+      502,
+      "ATTACHMENT_UPLOAD_FAILED",
+      "Cloudinary could not be reached to upload the attachment",
+    );
+  }
+
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok || !payload || typeof payload !== "object") {
+    throw new HttpError(
+      502,
+      "ATTACHMENT_UPLOAD_FAILED",
+      "Cloudinary rejected the attachment upload",
+    );
+  }
+
+  const uploaded = payload as { public_id?: unknown; secure_url?: unknown };
+  if (
+    typeof uploaded.public_id !== "string" ||
+    typeof uploaded.secure_url !== "string"
+  ) {
+    throw new HttpError(
+      502,
+      "ATTACHMENT_UPLOAD_FAILED",
+      "Cloudinary returned an invalid attachment upload response",
+    );
+  }
+
+  return { publicId: uploaded.public_id, secureUrl: uploaded.secure_url };
 }
 
 export function validateAttachmentFile(

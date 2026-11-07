@@ -207,7 +207,7 @@ export default function PortalHome() {
   ): Promise<PendingAttachment | null> {
     try {
       const target = await apiFetch<{
-        storage?: "minio";
+        storage?: "minio" | "cloudinary";
         uploadUrl: string;
         uploadPreset?: string;
         cloudName?: string;
@@ -221,7 +221,7 @@ export default function PortalHome() {
         }),
       });
       const uploadResponse =
-        target.storage === "minio"
+        target.storage
           ? await fetch(target.uploadUrl, {
               method: "PUT",
               headers: {

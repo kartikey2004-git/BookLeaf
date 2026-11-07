@@ -28,6 +28,7 @@ import {
   createMinioObjectKey,
   getMinioAttachmentStorage,
   getTicketAttachmentUploadTarget,
+  uploadToCloudinary,
   uploadToMinio,
   validateAttachmentFile,
 } from "../lib/cloudinary.js";
@@ -168,9 +169,8 @@ export function createTicketRouters(
         }
         validateAttachmentFile(input.fileName, input.mimeType, input.size);
         response.json({
-          uploadUrl: target.uploadUrl,
-          uploadPreset: target.uploadPreset,
-          cloudName: target.cloudName,
+          storage: "cloudinary",
+          uploadUrl: "/api/v1/author/tickets/attachments/upload",
         });
       } catch (error) {
         next(error);
@@ -186,15 +186,35 @@ export function createTicketRouters(
         const mimeType = request.header("content-type")?.split(";")[0] ?? "";
         const content = request.body;
         if (!Buffer.isBuffer(content)) {
-          throw new HttpError(400, "VALIDATION_ERROR", "Attachment content is required");
+          throw new HttpError(
+            400,
+            "VALIDATION_ERROR",
+            "Attachment content is required",
+          );
         }
         validateAttachmentFile(fileName, mimeType, content.length);
         const minio = getMinioAttachmentStorage(environment);
-        if (!minio) {
-          throw new HttpError(503, "ATTACHMENT_STORAGE_UNAVAILABLE", "Local attachment storage is not configured");
+        const target = getTicketAttachmentUploadTarget(environment);
+        if (!minio && !target) {
+          throw new HttpError(
+            503,
+            "ATTACHMENT_STORAGE_UNAVAILABLE",
+            "Attachment storage is not configured",
+          );
         }
-        const publicId = createMinioObjectKey(fileName);
-        const secureUrl = await uploadToMinio(minio, publicId, content, mimeType);
+        let publicId: string;
+        let secureUrl: string;
+        if (minio) {
+          publicId = createMinioObjectKey(fileName);
+          secureUrl = await uploadToMinio(minio, publicId, content, mimeType);
+        } else {
+          ({ publicId, secureUrl } = await uploadToCloudinary(
+            target!,
+            content,
+            fileName,
+            mimeType,
+          ));
+        }
         response.status(201).json({ publicId, secureUrl });
       } catch (error) {
         next(error);
