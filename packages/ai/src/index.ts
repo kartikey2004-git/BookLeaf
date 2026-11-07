@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { GoogleGenAI } from "@google/genai";
+import pino from "pino";
 import { z } from "@repo/validation";
 
 export const AI_PROMPT_VERSION = "bookleaf-kb-2026-11-04";
@@ -206,7 +207,30 @@ export type AiProviderConfig = {
   apiKey: string;
   model: string;
   timeoutMs?: number;
+  ticketId?: string;
+  callType?: "triage" | "draft-json" | "draft-stream";
 };
+const aiLog = pino({ base: { service: "bookleaf-ai" } });
+
+function logUsage(
+  config: AiProviderConfig,
+  usage: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    totalTokenCount?: number;
+  } | undefined,
+  startedAt: number,
+): void {
+  aiLog.info({
+    callType: config.callType ?? "json",
+    ...(config.ticketId ? { ticketId: config.ticketId } : {}),
+    model: config.model,
+    promptTokens: usage?.promptTokenCount,
+    outputTokens: usage?.candidatesTokenCount,
+    totalTokens: usage?.totalTokenCount,
+    latencyMs: Date.now() - startedAt,
+  }, "Gemini usage");
+}
 function normalise(error: unknown): AiProviderError {
   if (error instanceof AiProviderError) return error;
   const providerError =
@@ -283,6 +307,7 @@ export async function completeJson<T>(
       config.timeoutMs ?? 15_000,
     );
     try {
+      const startedAt = Date.now();
       const response = await ai.models.generateContent({
         model: config.model,
         contents: promptText,
@@ -293,6 +318,7 @@ export async function completeJson<T>(
           abortSignal: controller.signal,
         },
       });
+      logUsage(config, response.usageMetadata, startedAt);
       try {
         return schema.parse(JSON.parse(response.text ?? ""));
       } catch {
@@ -335,6 +361,8 @@ export async function streamDraft(
   let draft = "";
   let blockedReason: string | undefined;
   let finishReason: string | undefined;
+  let usage: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | undefined;
+  const startedAt = Date.now();
   try {
     const stream = await ai.models.generateContentStream({
       model: config.model,
@@ -345,6 +373,7 @@ export async function streamDraft(
       },
     });
     for await (const response of stream) {
+      usage = response.usageMetadata ?? usage;
       blockedReason ??= response.promptFeedback?.blockReason;
       const chunkFinishReason = response.candidates?.[0]?.finishReason;
       if (
@@ -377,7 +406,9 @@ export async function streamDraft(
       );
     }
     try {
-      return draftSchema.parse({ draft }).draft;
+      const result = draftSchema.parse({ draft }).draft;
+      logUsage(config, usage, startedAt);
+      return result;
     } catch {
       throw new AiProviderError(
         "INVALID_OUTPUT",

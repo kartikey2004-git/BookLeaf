@@ -574,6 +574,8 @@ export function createTicketRouters(
             apiKey: environment.GEMINI_API_KEY,
             model: environment.GEMINI_MODEL,
             timeoutMs: environment.GEMINI_TIMEOUT_MS,
+            ticketId,
+            callType: "draft-json",
           },
           draftPrompt(
             `Subject: ${ticket.subject}\nDescription: ${ticket.description}\nConversation:\n${conversation}`,
@@ -658,6 +660,8 @@ export function createTicketRouters(
             apiKey: environment.GEMINI_API_KEY,
             model: environment.GEMINI_MODEL,
             timeoutMs: environment.GEMINI_TIMEOUT_MS,
+            ticketId,
+            callType: "draft-stream",
           },
           draftTextPrompt(
             `Subject: ${ticket.subject}\nDescription: ${ticket.description}\nConversation:\n${conversation}`,

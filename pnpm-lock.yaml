@@ -178,6 +178,9 @@ importers:
       '@repo/validation':
         specifier: workspace:*
         version: link:../validation
+      pino:
+        specifier: ^9.14.0
+        version: 9.14.0
     devDependencies:
       '@repo/config':
         specifier: workspace:*

@@ -57,6 +57,8 @@ async function processTicket(ticketId: string) {
       apiKey: environment.GEMINI_API_KEY,
       model: environment.GEMINI_MODEL,
       timeoutMs: environment.GEMINI_TIMEOUT_MS,
+      ticketId,
+      callType: "triage" as const,
     };
     const triage = await completeJson(config, triagePrompt(text), triageSchema);
     const suggestedPriority = applyPriorityFloor(
