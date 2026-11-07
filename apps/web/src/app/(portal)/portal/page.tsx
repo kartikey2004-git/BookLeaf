@@ -207,9 +207,10 @@ export default function PortalHome() {
   ): Promise<PendingAttachment | null> {
     try {
       const target = await apiFetch<{
+        storage?: "minio";
         uploadUrl: string;
-        uploadPreset: string;
-        cloudName: string;
+        uploadPreset?: string;
+        cloudName?: string;
       }>("/api/v1/author/tickets/attachments/sign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -219,13 +220,22 @@ export default function PortalHome() {
           size: file.size,
         }),
       });
-      const form = new FormData();
-      form.append("file", file);
-      form.append("upload_preset", target.uploadPreset);
-      const uploadResponse = await fetch(target.uploadUrl, {
-        method: "POST",
-        body: form,
-      });
+      const uploadResponse =
+        target.storage === "minio"
+          ? await fetch(target.uploadUrl, {
+              method: "PUT",
+              headers: {
+                "Content-Type": file.type,
+                "X-File-Name": file.name,
+              },
+              body: file,
+            })
+          : await (async () => {
+              const form = new FormData();
+              form.append("file", file);
+              form.append("upload_preset", target.uploadPreset ?? "");
+              return fetch(target.uploadUrl, { method: "POST", body: form });
+            })();
       if (!uploadResponse.ok) return null;
       const uploaded = (await uploadResponse.json()) as {
         publicId?: string;

@@ -32,6 +32,12 @@ const environmentSchema = z.object({
     .default(60000),
   CLOUDINARY_CLOUD_NAME: optionalNonEmptyString,
   CLOUDINARY_UPLOAD_PRESET: optionalNonEmptyString,
+  MINIO_ENDPOINT: optionalNonEmptyString,
+  MINIO_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+  MINIO_USE_SSL: booleanFromString.optional().default(false),
+  MINIO_ACCESS_KEY: optionalNonEmptyString,
+  MINIO_SECRET_KEY: optionalNonEmptyString,
+  MINIO_BUCKET: optionalNonEmptyString,
   READINESS_CHECK_DATABASE: booleanFromString.optional().default(false),
 });
 

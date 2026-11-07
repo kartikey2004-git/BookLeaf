@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Router, type Request } from "express";
+import express, { Router, type Request } from "express";
 import { z } from "@repo/validation";
 import { createRequireAdmin } from "../middleware/admin-auth.js";
 import { HttpError } from "../middleware/errors.js";
@@ -25,7 +25,10 @@ import {
 import type { ApiEnvironment } from "../config/env.js";
 import { createInngestClient, publishTicketCreated } from "../lib/inngest.js";
 import {
+  createMinioObjectKey,
+  getMinioAttachmentStorage,
   getTicketAttachmentUploadTarget,
+  uploadToMinio,
   validateAttachmentFile,
 } from "../lib/cloudinary.js";
 import { createFixedWindowRateLimit } from "../middleware/rate-limit.js";
@@ -146,6 +149,15 @@ export function createTicketRouters(
     async (request, response, next) => {
       try {
         const input = authorAttachmentSignSchema.parse(request.body);
+        const minio = getMinioAttachmentStorage(environment);
+        if (minio) {
+          validateAttachmentFile(input.fileName, input.mimeType, input.size);
+          response.json({
+            storage: "minio",
+            uploadUrl: "/api/v1/author/tickets/attachments/upload",
+          });
+          return;
+        }
         const target = getTicketAttachmentUploadTarget(environment);
         if (!target) {
           throw new HttpError(
@@ -160,6 +172,30 @@ export function createTicketRouters(
           uploadPreset: target.uploadPreset,
           cloudName: target.cloudName,
         });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+  author.put(
+    "/author/tickets/attachments/upload",
+    express.raw({ type: () => true, limit: "10mb" }),
+    async (request, response, next) => {
+      try {
+        const fileName = request.header("x-file-name") ?? "";
+        const mimeType = request.header("content-type")?.split(";")[0] ?? "";
+        const content = request.body;
+        if (!Buffer.isBuffer(content)) {
+          throw new HttpError(400, "VALIDATION_ERROR", "Attachment content is required");
+        }
+        validateAttachmentFile(fileName, mimeType, content.length);
+        const minio = getMinioAttachmentStorage(environment);
+        if (!minio) {
+          throw new HttpError(503, "ATTACHMENT_STORAGE_UNAVAILABLE", "Local attachment storage is not configured");
+        }
+        const publicId = createMinioObjectKey(fileName);
+        const secureUrl = await uploadToMinio(minio, publicId, content, mimeType);
+        response.status(201).json({ publicId, secureUrl });
       } catch (error) {
         next(error);
       }

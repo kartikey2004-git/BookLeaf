@@ -23,8 +23,8 @@
     "format:check": "prettier --check .",
     "db:generate": "pnpm --filter @repo/database generate",
     "db:migrate": "pnpm --filter @repo/database migrate",
-    "docker:up": "docker compose --env-file .env -f infrastructure/docker/docker-compose.yml up -d",
-    "docker:down": "docker compose --env-file .env -f infrastructure/docker/docker-compose.yml down"
+    "docker:up": "docker compose --env-file .env.example -f infrastructure/docker/docker-compose.yml up -d",
+    "docker:down": "docker compose --env-file .env.example -f infrastructure/docker/docker-compose.yml down"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

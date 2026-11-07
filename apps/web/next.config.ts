@@ -2,7 +2,10 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import type { NextConfig } from "next";
 
-const workspaceEnvPath = resolve(process.cwd(), "../../.env");
+const workspaceEnvPath = resolve(
+  process.cwd(),
+  process.env.NODE_ENV === "production" ? "../../.env" : "../../.env.example",
+);
 if (existsSync(workspaceEnvPath)) {
   process.loadEnvFile(workspaceEnvPath);
 }
