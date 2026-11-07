@@ -23,6 +23,12 @@ type Book = {
   platforms: string[];
 };
 
+function displayIsbn(isbn: string | null | undefined): string {
+  return !isbn || isbn === "NOT AVAILABLE" || /[x*]/i.test(isbn)
+    ? "Not assigned yet"
+    : isbn;
+}
+
 export default function BookPage({
   params,
 }: {
@@ -85,7 +91,7 @@ export default function BookPage({
           <section className="portal-grid">
             <article className="portal-card">
               <h2>Publishing</h2>
-              <p>ISBN: {book.isbn}</p>
+              <p>ISBN: {displayIsbn(book.isbn)}</p>
               <p>{book.genre}</p>
               <p>{book.status}</p>
             </article>

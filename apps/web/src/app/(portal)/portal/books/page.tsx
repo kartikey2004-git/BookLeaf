@@ -21,6 +21,11 @@ type Book = {
 function isInProduction(book: Book): boolean {
   return /production|typesetting|cover|manuscript/i.test(book.status);
 }
+function displayIsbn(isbn: string | null | undefined): string {
+  return !isbn || isbn === "NOT AVAILABLE" || /[x*]/i.test(isbn)
+    ? "Not assigned yet"
+    : isbn;
+}
 export default function BooksPage() {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,7 +66,7 @@ export default function BooksPage() {
     if (!query) return true;
     return (
       book.title.toLowerCase().includes(query) ||
-      book.isbn.toLowerCase().includes(query)
+      displayIsbn(book.isbn).toLowerCase().includes(query)
     );
   });
   return (
@@ -133,7 +138,7 @@ export default function BooksPage() {
                             : "Publication date unavailable")}
                       </small>
                     </td>
-                    <td data-label="ISBN">{book.isbn}</td>
+                    <td data-label="ISBN">{displayIsbn(book.isbn)}</td>
                     <td data-label="Status">
                       <span className="portal-badge">{book.status}</span>
                     </td>

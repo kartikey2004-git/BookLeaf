@@ -1,7 +1,11 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { createApp, type AuthorRouteDependencies } from "./app.js";
-import type { AuthorBook, AuthorService } from "./modules/author/service.js";
+import {
+  presentIsbn,
+  type AuthorBook,
+  type AuthorService,
+} from "./modules/author/service.js";
 
 const authorOneBook: AuthorBook = {
   id: "BK001",
@@ -78,6 +82,12 @@ const app = createApp(
 );
 
 describe("author resource API", () => {
+  it("normalizes masked ISBNs without changing zero royalty values", () => {
+    expect(presentIsbn("978-93-5XXXX-13-4")).toBe("NOT AVAILABLE");
+    expect(presentIsbn("978-93-5000-13-4")).toBe("978-93-5000-13-4");
+    expect("0.00").toBe("0.00");
+  });
+
   it("rejects a missing or invalid session", async () => {
     expect((await request(app).get("/api/v1/author/me")).status).toBe(401);
     expect(

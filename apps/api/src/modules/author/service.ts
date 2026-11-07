@@ -67,6 +67,10 @@ function requiredMoney(
   return money(value) ?? "0.00";
 }
 
+export function presentIsbn(isbn: string): string {
+  return isbn.trim() && !/[x*]/i.test(isbn) ? isbn : "NOT AVAILABLE";
+}
+
 function presentBook(book: {
   externalId: string;
   title: string;
@@ -87,7 +91,7 @@ function presentBook(book: {
   return {
     id: book.externalId,
     title: book.title,
-    isbn: book.isbn,
+    isbn: presentIsbn(book.isbn),
     genre: book.genre,
     publicationDate: dateOnly(book.publicationDate),
     status: book.publicationStatus,
